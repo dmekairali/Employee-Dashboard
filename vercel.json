@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "api/sheets.js": {
+      "memory": 1024
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/sheets",
+      "dest": "/api/sheets.js"
+    }
+  ]
+}
