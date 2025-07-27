@@ -2,10 +2,10 @@
 // api/debug-service-account.js
 
 module.exports = async function handler(req, res) {
-  // Only allow this in development
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(403).json({ error: 'Debug endpoint disabled in production' });
-  }
+  // Allow in production for troubleshooting (remove after fixing)
+  // if (process.env.NODE_ENV === 'production') {
+  //   return res.status(403).json({ error: 'Debug endpoint disabled in production' });
+  // }
 
   try {
     // Check what environment variables we have
