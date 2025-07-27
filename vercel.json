@@ -1,13 +1,40 @@
 {
-  "functions": {
-    "api/sheets.js": {
-      "memory": 1024
+  "version": 2,
+  "name": "emp-dashboard",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
     }
-  },
+  ],
   "routes": [
     {
-      "src": "/api/sheets",
-      "dest": "/api/sheets.js"
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/static/(.*)",
+      "dest": "/static/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/sheets.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
+  "env": {
+    "NODE_ENV": "production"
+  },
+  "build": {
+    "env": {
+      "REACT_APP_NODE_ENV": "production"
+    }
+  }
 }
