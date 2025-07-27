@@ -1,0 +1,138 @@
+{
+  "employees": [
+    {
+      "id": "EMP001",
+      "name": "Rajesh Kumar",
+      "email": "rajesh.kumar@kairali.com",
+      "passkey": "OP2025",
+      "role": "Operation",
+      "department": "Operations",
+      "joinDate": "2023-01-15",
+      "status": "active",
+      "permissions": {
+        "canViewOverview": true,
+        "canViewHT": true,
+        "canViewDelegation": true,
+        "canViewFMS": true,
+        "canViewPC": true,
+        "canViewAnalytics": true
+      }
+    },
+    {
+      "id": "EMP002",
+      "name": "Priya Sharma",
+      "email": "priya.sharma@kairali.com",
+      "passkey": "PC2025",
+      "role": "PC",
+      "department": "Product Control",
+      "joinDate": "2023-03-20",
+      "status": "active",
+      "permissions": {
+        "canViewOverview": true,
+        "canViewHT": true,
+        "canViewDelegation": true,
+        "canViewFMS": true,
+        "canViewPC": true,
+        "canViewAnalytics": false
+      }
+    },
+    {
+      "id": "EMP003",
+      "name": "Amit Singh",
+      "email": "amit.singh@kairali.com",
+      "passkey": "SA2025",
+      "role": "Sales Agent",
+      "department": "Sales",
+      "joinDate": "2023-02-10",
+      "status": "active",
+      "permissions": {
+        "canViewOverview": true,
+        "canViewHT": true,
+        "canViewDelegation": true,
+        "canViewFMS": true,
+        "canViewPC": false,
+        "canViewAnalytics": false
+      }
+    },
+    {
+      "id": "EMP004",
+      "name": "Dr. Kavitha Menon",
+      "email": "kavitha.menon@kairali.com",
+      "passkey": "MR2025",
+      "role": "Medical Representative",
+      "department": "Medical",
+      "joinDate": "2023-04-05",
+      "status": "active",
+      "permissions": {
+        "canViewOverview": true,
+        "canViewHT": true,
+        "canViewDelegation": false,
+        "canViewFMS": false,
+        "canViewPC": false,
+        "canViewAnalytics": true
+      }
+    },
+    {
+      "id": "EMP005",
+      "name": "Sunita Nair",
+      "email": "sunita.nair@kairali.com",
+      "passkey": "HR2025",
+      "role": "HR",
+      "department": "Human Resources",
+      "joinDate": "2022-11-12",
+      "status": "active",
+      "permissions": {
+        "canViewOverview": true,
+        "canViewHT": true,
+        "canViewDelegation": true,
+        "canViewFMS": false,
+        "canViewPC": false,
+        "canViewAnalytics": true
+      }
+    },
+    {
+      "id": "EMP006",
+      "name": "Ravi Pillai",
+      "email": "ravi.pillai@kairali.com",
+      "passkey": "AC2025",
+      "role": "Account",
+      "department": "Accounts",
+      "joinDate": "2023-05-18",
+      "status": "active",
+      "permissions": {
+        "canViewOverview": true,
+        "canViewHT": false,
+        "canViewDelegation": false,
+        "canViewFMS": true,
+        "canViewPC": false,
+        "canViewAnalytics": true
+      }
+    }
+  ],
+  "rolePermissions": {
+    "Operation": {
+      "tabs": ["overview", "ht-tasks", "delegation", "fms", "analytics"],
+      "description": "Full access to all modules"
+    },
+    "PC": {
+      "tabs": ["overview", "ht-tasks", "delegation", "fms", "analytics"],
+      "description": "Product Control - No HT access"
+    },
+    "Sales Agent": {
+      "tabs": ["overview", "fms"],
+      "description": "Sales focused - Limited access"
+    },
+    "Medical Representative": {
+      "tabs": ["overview", "analytics"],
+      "description": "Medical rep - Analytics and overview only"
+    },
+    "HR": {
+      "tabs": ["overview", "ht-tasks", "delegation", "analytics"],
+      "description": "HR access - No FMS"
+    },
+    "Account": {
+      "tabs": ["overview", "fms", "analytics"],
+      "description": "Accounting - FMS and analytics"
+    }
+  }
+}
