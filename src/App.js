@@ -8,6 +8,7 @@ function App() {
 
   const handleLogin = (user) => {
     setCurrentUser(user);
+    console.log("START")
     // Store user in localStorage for persistence
     localStorage.setItem('currentUser', JSON.stringify(user));
   };
@@ -17,7 +18,6 @@ function App() {
     localStorage.removeItem('currentUser');
   };
 
-  
   React.useEffect(() => {
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
