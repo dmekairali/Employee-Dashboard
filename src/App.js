@@ -17,7 +17,7 @@ function App() {
     localStorage.removeItem('currentUser');
   };
 
-  // Check for existing session on app load
+  
   React.useEffect(() => {
     const savedUser = localStorage.getItem('currentUser');
     if (savedUser) {
