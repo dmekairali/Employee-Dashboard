@@ -37,6 +37,7 @@ import FMSTasks from './FMSTasks';
 import HTTasks from './HTTasks';
 import PCTasks from './PCTasks';
 import HSHelpSlip from './HSHelpSlip';
+import AdminNotifications from './AdminNotifications';
 import NewTaskNotification from './NewTaskNotification';
 import dataManager from '../utils/DataManager';
 
@@ -134,6 +135,7 @@ console.log('Registering callback for user:', currentUser.name);
       { id: 'pc', label: 'PC', icon: Clipboard, permission: 'canViewPC' },
       { id: 'hs', label: 'HelpSlip', icon: UserPlus, permission: 'canViewHS' },
       { id: 'analytics', label: 'Analytics', icon: BarChart3, permission: 'canViewAnalytics' },
+      { id: 'admin', label: 'Admin', icon: Settings, permission: 'canViewAdmin' },
     ];
 
     return allItems.filter(item => permissions[item.permission]);
@@ -697,6 +699,23 @@ console.log('Registering callback for user:', currentUser.name);
               <p className="text-gray-600">Analytics component will be implemented here.</p>
             </div>
           )}
+
+            {/* Admin Full Page */}
+{selectedTab === 'admin' && currentUser.permissions.canViewAdmin && (
+  <AdminNotifications currentUser={currentUser} />
+)}
+
+{/* Fallback for unauthorized admin access */}
+{selectedTab === 'admin' && !currentUser.permissions.canViewAdmin && (
+  <div className="bg-white rounded-xl p-8 border border-gray-200">
+    <div className="text-center">
+      <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+      <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
+      <p className="text-gray-600">You don't have permission to access the Admin panel.</p>
+      <p className="text-gray-500 text-sm mt-2">Contact your administrator to request Admin access.</p>
+    </div>
+  </div>
+)}
 
           {/* Quick Actions */}
           <div className={`mt-8 bg-gradient-to-br ${getRoleColor(currentUser.role)} rounded-xl p-6 text-white`}>
