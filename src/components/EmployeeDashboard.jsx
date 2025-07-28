@@ -48,6 +48,7 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
   const [notifications, setNotifications] = useState(6);
   const [newTaskNotifications, setNewTaskNotifications] = useState([]);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState(null);
   
   // State for pending counts
   const [pendingCounts, setPendingCounts] = useState({
@@ -128,6 +129,11 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
       const newCounts = calculatePendingCounts();
       setPendingCounts(newCounts);
       console.log('Updated pending counts:', newCounts);
+
+      const delegationMeta = dataManager.getCacheMetadata('delegation', currentUser.name);
+      if (delegationMeta) {
+        setLastRefreshTime(new Date(delegationMeta.lastRefresh));
+      }
     };
 
     // Initial update
@@ -137,7 +143,7 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
     const interval = setInterval(updateCounts, 2 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [calculatePendingCounts]);
+  }, [calculatePendingCounts, currentUser.name]);
 
 
   // Setup new task notifications
@@ -370,7 +376,7 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
               </div>
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              Last update: {new Date().toLocaleTimeString()}
+              Last update: {lastRefreshTime ? lastRefreshTime.toLocaleTimeString() : 'N/A'}
             </div>
           </div>
 
