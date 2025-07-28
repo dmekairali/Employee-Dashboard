@@ -1,4 +1,4 @@
-// src/utils/DataManager.js
+// src/utils/DataManager.js - Enhanced version
 
 class DataManager {
   constructor() {
@@ -30,6 +30,7 @@ class DataManager {
       this.checkForNewTasks(component, existingData.data, data, userId);
     }
 
+    console.log(`Cache updated for ${component}_${userId}: ${Array.isArray(data) ? data.length : 'N/A'} items`);
     return data;
   }
 
@@ -39,10 +40,18 @@ class DataManager {
     const cached = this.cache.get(key);
     
     if (cached) {
+      console.log(`Cache hit for ${component}_${userId}: ${Array.isArray(cached.data) ? cached.data.length : 'N/A'} items`);
       return cached.data;
     }
     
+    console.log(`Cache miss for ${component}_${userId}`);
     return null;
+  }
+
+  // Get data with fallback - returns empty array if no data
+  getDataWithFallback(component, userId) {
+    const data = this.getData(component, userId);
+    return data || [];
   }
 
   // Check if data exists and is fresh
@@ -51,9 +60,37 @@ class DataManager {
     return this.cache.has(key);
   }
 
+  // Check if data is fresh (within refresh interval)
+  isDataFresh(component, userId) {
+    const key = this.getCacheKey(component, userId);
+    const cached = this.cache.get(key);
+    
+    if (!cached) return false;
+    
+    const age = Date.now() - cached.timestamp;
+    return age < this.REFRESH_INTERVAL;
+  }
+
+  // Get cache metadata
+  getCacheMetadata(component, userId) {
+    const key = this.getCacheKey(component, userId);
+    const cached = this.cache.get(key);
+    
+    if (!cached) return null;
+    
+    return {
+      timestamp: cached.timestamp,
+      lastRefresh: cached.lastRefresh,
+      age: Date.now() - cached.timestamp,
+      isFresh: this.isDataFresh(component, userId),
+      itemCount: Array.isArray(cached.data) ? cached.data.length : 0
+    };
+  }
+
   // Force refresh data
   async refreshData(component, userId, fetchFunction) {
     try {
+      console.log(`Force refreshing ${component} data for user ${userId}`);
       const newData = await fetchFunction();
       this.setData(component, userId, newData);
       return newData;
@@ -83,6 +120,7 @@ class DataManager {
     }, this.REFRESH_INTERVAL);
 
     this.refreshIntervals.set(key, intervalId);
+    console.log(`Started auto-refresh for ${component}_${userId}`);
   }
 
   // Stop auto-refresh for a component
@@ -92,17 +130,20 @@ class DataManager {
     if (this.refreshIntervals.has(key)) {
       clearInterval(this.refreshIntervals.get(key));
       this.refreshIntervals.delete(key);
+      console.log(`Stopped auto-refresh for ${component}_${userId}`);
     }
   }
 
   // Register callback for new task notifications
   registerNewTaskCallback(userId, callback) {
     this.newTaskCallbacks.set(userId, callback);
+    console.log(`Registered new task callback for user ${userId}`);
   }
 
   // Unregister callback
   unregisterNewTaskCallback(userId) {
     this.newTaskCallbacks.delete(userId);
+    console.log(`Unregistered new task callback for user ${userId}`);
   }
 
   // Check for new tasks by comparing old and new data
@@ -112,6 +153,7 @@ class DataManager {
     const newTasks = this.findNewTasks(oldData, newData);
     
     if (newTasks.length > 0) {
+      console.log(`Found ${newTasks.length} new tasks in ${component} for user ${userId}`);
       const callback = this.newTaskCallbacks.get(userId);
       if (callback) {
         callback({
@@ -178,6 +220,65 @@ class DataManager {
     return hash.toString();
   }
 
+  // Get all cached data for overview
+  getAllCachedData(userId) {
+    const components = ['delegation', 'fms', 'ht', 'pc', 'hs'];
+    const allData = {};
+    
+    components.forEach(component => {
+      allData[component] = this.getDataWithFallback(component, userId);
+    });
+    
+    return allData;
+  }
+
+  // Get summary statistics for all cached data
+  getCacheSummary(userId) {
+    const allData = this.getAllCachedData(userId);
+    const summary = {};
+    
+    Object.keys(allData).forEach(component => {
+      const data = allData[component];
+      const metadata = this.getCacheMetadata(component, userId);
+      
+      summary[component] = {
+        count: data.length,
+        lastUpdate: metadata?.lastRefresh || null,
+        isFresh: metadata?.isFresh || false,
+        age: metadata?.age || 0
+      };
+    });
+    
+    return summary;
+  }
+
+  // Preload all data for a user (useful for overview)
+  async preloadAllData(userId, fetchFunctions) {
+    const results = {};
+    const components = Object.keys(fetchFunctions);
+    
+    console.log(`Preloading data for user ${userId}: ${components.join(', ')}`);
+    
+    for (const component of components) {
+      try {
+        if (!this.isDataFresh(component, userId)) {
+          console.log(`Preloading ${component} data...`);
+          const data = await fetchFunctions[component]();
+          this.setData(component, userId, data);
+          results[component] = { success: true, count: data.length };
+        } else {
+          console.log(`${component} data is fresh, skipping preload`);
+          results[component] = { success: true, cached: true };
+        }
+      } catch (error) {
+        console.error(`Failed to preload ${component}:`, error);
+        results[component] = { success: false, error: error.message };
+      }
+    }
+    
+    return results;
+  }
+
   // Clear all cache and intervals
   clearAll() {
     // Clear all intervals
@@ -189,6 +290,30 @@ class DataManager {
     this.cache.clear();
     this.refreshIntervals.clear();
     this.newTaskCallbacks.clear();
+    
+    console.log('Cleared all cache and intervals');
+  }
+
+  // Clear cache for specific user
+  clearUserCache(userId) {
+    const keysToDelete = [];
+    
+    this.cache.forEach((value, key) => {
+      if (key.endsWith(`_${userId}`)) {
+        keysToDelete.push(key);
+      }
+    });
+    
+    keysToDelete.forEach(key => {
+      this.cache.delete(key);
+      // Also stop auto-refresh if exists
+      if (this.refreshIntervals.has(key)) {
+        clearInterval(this.refreshIntervals.get(key));
+        this.refreshIntervals.delete(key);
+      }
+    });
+    
+    console.log(`Cleared cache for user ${userId}: ${keysToDelete.length} items`);
   }
 
   // Get cache stats for debugging
@@ -198,10 +323,31 @@ class DataManager {
       stats[key] = {
         dataCount: Array.isArray(value.data) ? value.data.length : 'N/A',
         lastRefresh: new Date(value.lastRefresh).toLocaleTimeString(),
-        age: Math.round((Date.now() - value.timestamp) / 1000 / 60) + ' minutes'
+        age: Math.round((Date.now() - value.timestamp) / 1000 / 60) + ' minutes',
+        isFresh: (Date.now() - value.timestamp) < this.REFRESH_INTERVAL
       };
     });
     return stats;
+  }
+
+  // Export cache data for debugging
+  exportCacheData() {
+    const exportData = {};
+    this.cache.forEach((value, key) => {
+      exportData[key] = {
+        ...value,
+        dataPreview: Array.isArray(value.data) ? value.data.slice(0, 3) : value.data
+      };
+    });
+    return exportData;
+  }
+
+  // Import cache data (useful for testing)
+  importCacheData(importData) {
+    Object.keys(importData).forEach(key => {
+      this.cache.set(key, importData[key]);
+    });
+    console.log(`Imported cache data for ${Object.keys(importData).length} keys`);
   }
 }
 
