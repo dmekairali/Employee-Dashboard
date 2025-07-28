@@ -1,3 +1,4 @@
+// Updated EmployeeDashboard.jsx with Management Tab
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bell, 
@@ -29,7 +30,9 @@ import {
   Ticket,
   Mail,
   Phone,
-  Clipboard
+  Clipboard,
+  Gauge, // Added for Management Dashboard
+  Shield  // Added for Management Dashboard
 } from 'lucide-react';
 import NotificationsAnnouncements from './NotificationsAnnouncements';
 import DelegationTasks from './DelegationTasks';
@@ -38,6 +41,7 @@ import HTTasks from './HTTasks';
 import PCTasks from './PCTasks';
 import HSHelpSlip from './HSHelpSlip';
 import AdminNotifications from './AdminNotifications';
+import ManagementDashboard from './ManagementDashboard'; // Import the new component
 import NewTaskNotification from './NewTaskNotification';
 import Overview from './Overview';
 import dataManager from '../utils/DataManager';
@@ -139,7 +143,6 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
     return () => clearInterval(interval);
   }, [calculatePendingCounts]);
 
-
   // Setup new task notifications
   useEffect(() => {
     if (currentUser) {
@@ -227,6 +230,17 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
     );
   };
 
+  // Check if user is management level
+  const isManagementUser = () => {
+    const managementRoles = ['director', 'manager', 'ceo', 'cto', 'admin','ea'];
+    const userRole = (currentUser.role || '').toLowerCase();
+    const userDepartment = (currentUser.department || '').toLowerCase();
+    
+    return managementRoles.some(role => 
+      userRole.includes(role) || userDepartment.includes(role)
+    ) || currentUser.permissions.canViewAdmin;
+  };
+
   // Role-based navigation items with counts
   const getNavigationItems = (permissions) => {
     const allItems = [
@@ -286,6 +300,15 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
         permission: 'canViewAnalytics',
         count: 0 // Analytics doesn't need pending count
       },
+      // Management Dashboard - Only show for management users
+      ...(isManagementUser() ? [{
+        id: 'management', 
+        label: 'Management', 
+        icon: Gauge, 
+        permission: 'canViewAdmin', // Using admin permission as proxy for management access
+        count: 0, // Management doesn't need pending count
+        special: true // Mark as special to style differently
+      }] : []),
       { 
         id: 'admin', 
         label: 'Admin', 
@@ -295,7 +318,13 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
       },
     ];
 
-    return allItems.filter(item => permissions[item.permission]);
+    // Filter items based on permissions, but always show management for management users
+    return allItems.filter(item => {
+      if (item.id === 'management') {
+        return isManagementUser();
+      }
+      return permissions[item.permission];
+    });
   };
 
   const navigationItems = getNavigationItems(currentUser.permissions);
@@ -315,9 +344,30 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
       'Sales Agent': 'from-purple-500 to-purple-600',
       'Medical Representative': 'from-red-500 to-red-600',
       'HR': 'from-yellow-500 to-yellow-600',
-      'Account': 'from-indigo-500 to-indigo-600'
+      'Account': 'from-indigo-500 to-indigo-600',
+      'Director': 'from-red-600 to-purple-600',
+      'Manager': 'from-purple-600 to-indigo-600',
+      'CEO': 'from-gold-500 to-yellow-600',
+      'Admin': 'from-gray-600 to-gray-700'
     };
     return colors[role] || 'from-gray-500 to-gray-600';
+  };
+
+  // Get page title based on selected tab
+  const getPageTitle = () => {
+    switch (selectedTab) {
+      case 'notifications': return 'Notifications & Announcements';
+      case 'overview': return 'Dashboard Overview';
+      case 'ht-tasks': return 'Help Tickets';
+      case 'delegation': return 'Delegation Tasks';
+      case 'fms': return 'FMS Tasks';
+      case 'pc': return 'PC Dashboard';
+      case 'hs': return 'Help Slips';
+      case 'analytics': return 'Analytics';
+      case 'management': return 'Management Command Center';
+      case 'admin': return 'Admin Panel';
+      default: return 'Dashboard';
+    }
   };
 
   return (
@@ -343,13 +393,18 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
               onClick={() => setSelectedTab(item.id)}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left transition-all duration-200 group ${
                 selectedTab === item.id 
-                  ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600' 
+                  ? item.special 
+                    ? 'bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 border-r-2 border-purple-600' 
+                    : 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-              }`}
+              } ${item.special ? 'font-semibold' : ''}`}
             >
               <div className="flex items-center space-x-3">
-                <item.icon className="w-5 h-5" />
+                <item.icon className={`w-5 h-5 ${item.special ? 'text-purple-600' : ''}`} />
                 <span className="font-medium">{item.label}</span>
+                {item.special && (
+                  <Shield className="w-4 h-4 text-purple-500" />
+                )}
               </div>
               
               {/* Count Badge */}
@@ -382,7 +437,14 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
             </div>
             <div className="flex-1">
               <p className="font-medium text-gray-900">{currentUser.name}</p>
-              <p className="text-sm text-gray-500">{currentUser.role}</p>
+              <p className="text-sm text-gray-500">
+                {currentUser.role}
+                {isManagementUser() && (
+                  <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-semibold">
+                    MGMT
+                  </span>
+                )}
+              </p>
             </div>
             <button 
               onClick={onLogout}
@@ -401,21 +463,22 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
         <header className="bg-white border-b border-gray-200 px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">
-                {selectedTab === 'notifications' ? 'Notifications & Announcements' :
-                 selectedTab === 'overview' ? 'Dashboard Overview' :
-                 selectedTab === 'ht-tasks' ? 'Help Tickets' :
-                 selectedTab === 'delegation' ? 'Delegation Tasks' :
-                 selectedTab === 'fms' ? 'FMS Tasks' :
-                 selectedTab === 'pc' ? 'PC Dashboard' :
-                 selectedTab === 'hs' ? 'Help Slips' :
-                 selectedTab === 'analytics' ? 'Analytics' :
-                 selectedTab === 'admin' ? 'Admin Panel' :
-                 'Dashboard'}
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                {selectedTab === 'management' && (
+                  <Gauge className="w-6 h-6 mr-3 text-purple-600" />
+                )}
+                {getPageTitle()}
+                {selectedTab === 'management' && (
+                  <span className="ml-3 px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full font-semibold">
+                    EXECUTIVE
+                  </span>
+                )}
               </h2>
               <p className="text-gray-600">
                 {selectedTab === 'overview' 
                   ? <TimeDisplay />
+                  : selectedTab === 'management'
+                  ? 'Real-time organizational insights and performance analytics'
                   : `${currentUser.role} • ${currentUser.department}`
                 }
               </p>
@@ -426,7 +489,7 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
-                  placeholder="Search tickets, tasks..."
+                  placeholder={selectedTab === 'management' ? "Search organizations..." : "Search tickets, tasks..."}
                   className="pl-10 pr-4 py-2 w-80 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -484,8 +547,25 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
             </div>
           )}
 
+          {/* Management Dashboard - New Addition */}
+          {selectedTab === 'management' && isManagementUser() && (
+            <ManagementDashboard currentUser={currentUser} />
+          )}
+
           {selectedTab === 'admin' && currentUser.permissions.canViewAdmin && (
             <AdminNotifications currentUser={currentUser} />
+          )}
+
+          {/* Access Denied Messages */}
+          {selectedTab === 'management' && !isManagementUser() && (
+            <div className="bg-white rounded-xl p-8 border border-gray-200">
+              <div className="text-center">
+                <Shield className="w-12 h-12 text-purple-500 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Management Access Required</h2>
+                <p className="text-gray-600">You need management-level permissions to access this dashboard.</p>
+                <p className="text-gray-500 text-sm mt-2">Contact your administrator to request Management access.</p>
+              </div>
+            </div>
           )}
 
           {selectedTab === 'admin' && !currentUser.permissions.canViewAdmin && (
