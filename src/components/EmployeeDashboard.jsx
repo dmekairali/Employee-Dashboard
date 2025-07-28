@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Bell, 
   Search, 
@@ -45,15 +45,118 @@ import TimeDisplay from './TimeDisplay';
 
 const EmployeeDashboard = ({ currentUser, onLogout }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [selectedTab, setSelectedTab] = useState('notifications'); // Changed default to overview
+  const [selectedTab, setSelectedTab] = useState('notifications');
   const [notifications, setNotifications] = useState(6);
   const [newTaskNotifications, setNewTaskNotifications] = useState([]);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  
+  // State for pending counts
+  const [pendingCounts, setPendingCounts] = useState({
+    ht: 0,
+    delegation: 0,
+    fms: 0,
+    pc: 0,
+    hs: 0
+  });
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Function to calculate pending counts from cached data
+  const calculatePendingCounts = useMemo(() => {
+    return () => {
+      const counts = {
+        ht: 0,
+        delegation: 0,
+        fms: 0,
+        pc: 0,
+        hs: 0
+      };
+
+      try {
+        // HT Tasks - Reply pending (assigned to user)
+        if (currentUser.permissions.canViewHT) {
+          const htData = dataManager.getDataWithFallback('ht', currentUser.name);
+          const htRaisedOnYou = htData.filter(task => task.issueDelegatedTo === currentUser.name);
+          counts.ht = htRaisedOnYou.filter(task => 
+            (!task.replyActual || task.replyActual.trim() === '')
+          ).length;
+        }
+
+        // Delegation Tasks - Pending status
+        if (currentUser.permissions.canViewDelegation) {
+          const delegationData = dataManager.getDataWithFallback('delegation', currentUser.name);
+          counts.delegation = delegationData.filter(task => 
+            (task.delegation_status || 'pending').toLowerCase().includes('pending')
+          ).length;
+        }
+
+        // FMS Tasks - Overdue/Delayed tasks
+        if (currentUser.permissions.canViewFMS) {
+          const fmsData = dataManager.getDataWithFallback('fms', currentUser.name);
+          counts.fms = fmsData.filter(task => task.delay && task.delay.trim() !== '').length;
+        }
+
+        // PC Tasks - Overdue tasks
+        if (currentUser.permissions.canViewPC) {
+          const pcData = dataManager.getDataWithFallback('pc', currentUser.name);
+          counts.pc = pcData.filter(task => {
+            const delay = task.delay || '';
+            return delay && delay.trim() !== '';
+          }).length;
+        }
+
+        // HS Tasks - Reply pending for user
+        if (currentUser.permissions.canViewHS) {
+          const hsData = dataManager.getDataWithFallback('hs', currentUser.name);
+          const userHSData = hsData.filter(task => 
+            task.name === currentUser.name || task.assignedTo === currentUser.name
+          );
+          counts.hs = userHSData.filter(task => 
+            task.replyPlanned && task.replyPlanned.trim() !== '' &&
+            (!task.replyActual || task.replyActual.trim() === '')
+          ).length;
+        }
+
+      } catch (error) {
+        console.error('Error calculating pending counts:', error);
+      }
+
+      return counts;
+    };
+  }, [currentUser.name, currentUser.permissions]);
+
+  // Update pending counts every 2 minutes
+  useEffect(() => {
+    const updateCounts = () => {
+      const newCounts = calculatePendingCounts();
+      setPendingCounts(newCounts);
+      console.log('Updated pending counts:', newCounts);
+    };
+
+    // Initial update
+    updateCounts();
+
+    // Set up interval for every 2 minutes (120,000 ms)
+    const interval = setInterval(updateCounts, 2 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [calculatePendingCounts]);
+
+  // Also update counts when cache data changes (immediate updates)
+  useEffect(() => {
+    const updateCounts = () => {
+      const newCounts = calculatePendingCounts();
+      setPendingCounts(newCounts);
+    };
+
+    // Listen for cache updates
+    const checkInterval = setInterval(updateCounts, 10000); // Check every 10 seconds for immediate updates
+
+    return () => clearInterval(checkInterval);
+  }, [calculatePendingCounts]);
 
   // Setup new task notifications
   useEffect(() => {
@@ -62,11 +165,9 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
         console.log('New tasks detected:', notification);
 
         setNewTaskNotifications(prev => {
-          // Check if we already have a notification for this component
           const existingIndex = prev.findIndex(n => n.component === notification.component);
           
           if (existingIndex >= 0) {
-            // Update existing notification
             const updated = [...prev];
             updated[existingIndex] = {
               ...updated[existingIndex],
@@ -75,20 +176,13 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
             };
             return updated;
           } else {
-            // Add new notification
             return [...prev, notification];
           }
         });
-        console.log('Setting modal to show');
         
-        // Show modal if there are new tasks
         setShowNewTaskModal(true);
-        
-        // Update notification badge count
         setNotifications(prev => prev + notification.count);
       };
-
-      console.log('Registering callback for user:', currentUser.name);
 
       dataManager.registerNewTaskCallback(currentUser.name, handleNewTasks);
 
@@ -117,28 +211,106 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
 
   const handleMarkAllRead = () => {
     setNewTaskNotifications([]);
-    setNotifications(6); // Reset to base count
+    setNotifications(6);
     setShowNewTaskModal(false);
   };
 
-  // Function to handle tab changes - this will be passed to Overview
   const handleTabChange = (tabId) => {
     setSelectedTab(tabId);
   };
 
-  // Role-based navigation items
+  // Component to render count badge
+  const CountBadge = ({ count, type = 'default' }) => {
+    if (!count || count === 0) return null;
+
+    const badgeStyles = {
+      default: 'bg-blue-500 text-white',
+      urgent: 'bg-red-500 text-white',
+      warning: 'bg-orange-500 text-white',
+      success: 'bg-green-500 text-white'
+    };
+
+    const getBadgeType = (count) => {
+      if (count > 10) return 'urgent';
+      if (count > 5) return 'warning';
+      return 'default';
+    };
+
+    const badgeType = type === 'default' ? getBadgeType(count) : type;
+
+    return (
+      <span className={`inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none rounded-full ${badgeStyles[badgeType]} ml-auto animate-pulse`}>
+        {count > 99 ? '99+' : count}
+      </span>
+    );
+  };
+
+  // Role-based navigation items with counts
   const getNavigationItems = (permissions) => {
     const allItems = [
-      
-      { id: 'notifications', label: 'Notifications', icon: Bell, permission: 'canViewOverview' },
-      { id: 'overview', label: 'Overview', icon: Home, permission: 'canViewOverview' },
-      { id: 'ht-tasks', label: 'HT Tasks', icon: UserPlus, permission: 'canViewHT' },
-      { id: 'delegation', label: 'Delegation', icon: Users, permission: 'canViewDelegation' },
-      { id: 'fms', label: 'FMS', icon: FileText, permission: 'canViewFMS' },
-      { id: 'pc', label: 'PC Dashboard', icon: Clipboard, permission: 'canViewPC' },
-      { id: 'hs', label: 'HelpSlip', icon: UserPlus, permission: 'canViewHS' },
-      { id: 'analytics', label: 'Analytics', icon: BarChart3, permission: 'canViewAnalytics' },
-      { id: 'admin', label: 'Admin', icon: Settings, permission: 'canViewAdmin' },
+      { 
+        id: 'notifications', 
+        label: 'Notifications', 
+        icon: Bell, 
+        permission: 'canViewOverview',
+        count: 0 // Notifications don't need pending count
+      },
+      { 
+        id: 'overview', 
+        label: 'Overview', 
+        icon: Home, 
+        permission: 'canViewOverview',
+        count: 0 // Overview doesn't need pending count
+      },
+      { 
+        id: 'ht-tasks', 
+        label: 'HT Tasks', 
+        icon: UserPlus, 
+        permission: 'canViewHT',
+        count: pendingCounts.ht
+      },
+      { 
+        id: 'delegation', 
+        label: 'Delegation', 
+        icon: Users, 
+        permission: 'canViewDelegation',
+        count: pendingCounts.delegation
+      },
+      { 
+        id: 'fms', 
+        label: 'FMS', 
+        icon: FileText, 
+        permission: 'canViewFMS',
+        count: pendingCounts.fms
+      },
+      { 
+        id: 'pc', 
+        label: 'PC Dashboard', 
+        icon: Clipboard, 
+        permission: 'canViewPC',
+        count: pendingCounts.pc
+      },
+      { 
+        id: 'hs', 
+        label: 'HelpSlip', 
+        icon: UserPlus, 
+        permission: 'canViewHS',
+        count: pendingCounts.hs
+      },
+      { 
+        id: 'analytics', 
+        label: 'Analytics', 
+        icon: BarChart3, 
+        permission: 'canViewAnalytics',
+        count: 0 // Analytics doesn't need pending count
+      },
+      { 
+        id: 'admin', 
+        label: 'Admin', 
+        icon: Settings, 
+        permission: 'canViewAdmin',
+        count: 0 // Admin doesn't need pending count
+      },
     ];
 
     return allItems.filter(item => permissions[item.permission]);
@@ -150,7 +322,7 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
   useEffect(() => {
     const validTabs = navigationItems.map(item => item.id);
     if (!validTabs.includes(selectedTab)) {
-      setSelectedTab('overview'); // Default fallback to overview
+      setSelectedTab('overview');
     }
   }, [currentUser, navigationItems, selectedTab]);
 
@@ -182,24 +354,44 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
           </div>
         </div>
 
-        <nav className="px-4 space-y-2">
+        <nav className="px-4 space-y-2 flex-1 overflow-y-auto">
           {navigationItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setSelectedTab(item.id)}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-all duration-200 ${
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left transition-all duration-200 group ${
                 selectedTab === item.id 
                   ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600' 
                   : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
-              <item.icon className="w-5 h-5" />
-              <span className="font-medium">{item.label}</span>
+              <div className="flex items-center space-x-3">
+                <item.icon className="w-5 h-5" />
+                <span className="font-medium">{item.label}</span>
+              </div>
+              
+              {/* Count Badge */}
+              <CountBadge count={item.count} />
             </button>
           ))}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
+        {/* User Profile Section */}
+        <div className="p-4 border-t border-gray-200">
+          {/* Cache Status Indicator */}
+          <div className="mb-3 px-4 py-2 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between text-xs text-gray-600">
+              <span>Cache Status</span>
+              <div className="flex items-center space-x-1">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span>Active</span>
+              </div>
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              Last update: {new Date().toLocaleTimeString()}
+            </div>
+          </div>
+
           <div className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-50 cursor-pointer">
             <div className={`w-8 h-8 bg-gradient-to-br ${getRoleColor(currentUser.role)} rounded-full flex items-center justify-center`}>
               <span className="text-white font-semibold text-sm">
@@ -283,43 +475,34 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
 
         {/* Dashboard Content */}
         <main className="p-8">
-         
-
           {selectedTab === 'notifications' && (
             <NotificationsAnnouncements currentUser={currentUser} />
           )}
 
-           {/* Conditional Content Based on Selected Tab */}
           {selectedTab === 'overview' && (
             <Overview currentUser={currentUser} onTabChange={handleTabChange} />
           )}
 
-          {/* Delegation Full Page */}
           {selectedTab === 'delegation' && currentUser.permissions.canViewDelegation && (
             <DelegationTasks currentUser={currentUser} />
           )}
 
-          {/* HT Tasks Full Page */}
           {selectedTab === 'ht-tasks' && currentUser.permissions.canViewHT && (
             <HTTasks currentUser={currentUser} />
           )}
 
-          {/* FMS Full Page */}
           {selectedTab === 'fms' && currentUser.permissions.canViewFMS && (
             <FMSTasks currentUser={currentUser} />
           )}
 
-          {/* PC Full Page */}
           {selectedTab === 'pc' && currentUser.permissions.canViewPC && (
             <PCTasks currentUser={currentUser} />
           )}
           
-          {/* HS Full Page */}
           {selectedTab === 'hs' && currentUser.permissions.canViewHS && (
             <HSHelpSlip currentUser={currentUser} />
           )}
 
-          {/* Analytics Full Page */}
           {selectedTab === 'analytics' && currentUser.permissions.canViewAnalytics && (
             <div className="bg-white rounded-xl p-8 border border-gray-200">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Analytics</h2>
@@ -327,12 +510,10 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
             </div>
           )}
 
-          {/* Admin Full Page */}
           {selectedTab === 'admin' && currentUser.permissions.canViewAdmin && (
             <AdminNotifications currentUser={currentUser} />
           )}
 
-          {/* Fallback for unauthorized admin access */}
           {selectedTab === 'admin' && !currentUser.permissions.canViewAdmin && (
             <div className="bg-white rounded-xl p-8 border border-gray-200">
               <div className="text-center">
