@@ -666,17 +666,25 @@ const ManagementDashboard = ({ currentUser }) => {
 
   // Render Delegation Analysis
   const renderDelegationAnalysis = () => {
-    const delegationGroups = {};
-    delegationItems.forEach(task => {
-      const delegatedBy = task.delegated_by || task.name || 'Unknown';
-      const doer = task.doer_name || task.doer || 'Unknown';
+    const delegationData = delegationItems.map(task => {
+        const delegatedBy = task.delegated_by || task.name || 'Unknown';
+        const doer = task.doer_name || task.doer || 'Unknown';
+        const status = (task.delegation_status || 'pending').toLowerCase();
+        return {
+            delegatedBy,
+            doer,
+            status
+        };
+    });
 
-      const key = `${delegatedBy} → ${doer}`;
+    const delegationGroups = {};
+    delegationData.forEach(task => {
+      const key = `${task.delegatedBy} → ${task.doer}`;
 
       if (!delegationGroups[key]) {
         delegationGroups[key] = {
-          delegatedBy,
-          doer,
+          delegatedBy: task.delegatedBy,
+          doer: task.doer,
           total: 0,
           pending: 0,
           completed: 0
@@ -685,10 +693,9 @@ const ManagementDashboard = ({ currentUser }) => {
 
       delegationGroups[key].total++;
 
-      const status = (task.delegation_status || 'pending').toLowerCase();
-      if (status.includes('pending')) {
+      if (task.status.includes('pending')) {
         delegationGroups[key].pending++;
-      } else if (status.includes('completed')) {
+      } else if (task.status.includes('completed')) {
         delegationGroups[key].completed++;
       }
     });
@@ -709,9 +716,6 @@ const ManagementDashboard = ({ currentUser }) => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestDelegationSort('delegatedBy')}>
-                    <div className="flex items-center">Delegated By {getSortDirectionIcon('delegatedBy')}</div>
-                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestDelegationSort('doer')}>
                     <div className="flex items-center">Doer Name {getSortDirectionIcon('doer')}</div>
                 </th>
@@ -734,7 +738,6 @@ const ManagementDashboard = ({ currentUser }) => {
                 const efficiency = group.total > 0 ? ((group.completed / group.total) * 100).toFixed(1) : 0;
                 return (
                   <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium text-gray-900">{group.delegatedBy}</td>
                     <td className="px-6 py-4 text-gray-900">{group.doer}</td>
                     <td className="px-6 py-4 text-gray-900">{group.total}</td>
                     <td className="px-6 py-4">
@@ -765,9 +768,20 @@ const ManagementDashboard = ({ currentUser }) => {
 
   // Render Help Ticket Analysis
   const renderHelpTicketAnalysis = () => {
+    const htData = htItems.map(task => {
+        const assignedTo = task.issueDelegatedTo || 'Unknown';
+        const replied = !(!task.replyActual || task.replyActual.trim() === '');
+        const highPriority = task.challengeLevel?.toUpperCase() === 'HIGH';
+        return {
+            assignedTo,
+            replied,
+            highPriority
+        };
+    });
+
     const htGroups = {};
-    htItems.forEach(task => {
-      const assignedTo = task.issueDelegatedTo || 'Unknown';
+    htData.forEach(task => {
+      const assignedTo = task.assignedTo;
 
       if (!htGroups[assignedTo]) {
         htGroups[assignedTo] = {
@@ -781,13 +795,13 @@ const ManagementDashboard = ({ currentUser }) => {
 
       htGroups[assignedTo].total++;
 
-      if (!task.replyActual || task.replyActual.trim() === '') {
+      if (!task.replied) {
         htGroups[assignedTo].pending++;
       } else {
         htGroups[assignedTo].replied++;
       }
 
-      if (task.challengeLevel?.toUpperCase() === 'HIGH') {
+      if (task.highPriority) {
         htGroups[assignedTo].highPriority++;
       }
     });
@@ -870,9 +884,20 @@ const ManagementDashboard = ({ currentUser }) => {
 
   // Render Help Slip Analysis
   const renderHelpSlipAnalysis = () => {
+    const hsData = hsItems.map(task => {
+        const assignedTo = task.assignedTo || 'Director';
+        const replied = !(!task.replyActual || task.replyActual.trim() === '');
+        const raisedBy = task.name || 'Unknown';
+        return {
+            assignedTo,
+            replied,
+            raisedBy
+        };
+    });
+
     const hsGroups = {};
-    hsItems.forEach(task => {
-      const assignedTo = task.assignedTo || 'Director'; // All assigned to Director as requested
+    hsData.forEach(task => {
+      const assignedTo = task.assignedTo;
 
       if (!hsGroups[assignedTo]) {
         hsGroups[assignedTo] = {
@@ -885,12 +910,11 @@ const ManagementDashboard = ({ currentUser }) => {
       }
 
       hsGroups[assignedTo].total++;
-      hsGroups[assignedTo].raisedBy.add(task.name || 'Unknown');
+      hsGroups[assignedTo].raisedBy.add(task.raisedBy);
 
-      if (task.replyPlanned && task.replyPlanned.trim() !== '' &&
-          (!task.replyActual || task.replyActual.trim() === '')) {
+      if (!task.replied) {
         hsGroups[assignedTo].pending++;
-      } else if (task.replyActual && task.replyActual.trim() !== '') {
+      } else {
         hsGroups[assignedTo].replied++;
       }
     });
