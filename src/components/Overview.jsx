@@ -50,6 +50,7 @@ import {
   BarChart
 } from 'lucide-react';
 import dataManager from '../utils/DataManager';
+import Weather from './Weather';
 
 // Import components for background loading
 import DelegationTasks from './DelegationTasks';
@@ -60,7 +61,6 @@ import HSHelpSlip from './HSHelpSlip';
 
 const Overview = ({ currentUser, onTabChange }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [weather, setWeather] = useState({ temp: 28, condition: 'sunny' });
   const [systemStatus, setSystemStatus] = useState({ api: 'online', sheets: 'online', cache: 'online' });
   const [recentActivities, setRecentActivities] = useState([]);
 
@@ -746,9 +746,6 @@ const Overview = ({ currentUser, onTabChange }) => {
     return colors[role] || 'from-gray-500 to-gray-600';
   };
 
-  const getWeatherIcon = (condition) => {
-    return condition === 'sunny' ? Sun : Cloud;
-  };
 
   const formatTime = (date) => {
     return date.toLocaleTimeString('en-US', { 
@@ -775,8 +772,6 @@ const Overview = ({ currentUser, onTabChange }) => {
     }
   };
 
-  const WeatherIcon = getWeatherIcon(weather.condition);
-
   // Show loading state if still loading
   if (loading) {
     return (
@@ -794,14 +789,7 @@ const Overview = ({ currentUser, onTabChange }) => {
                   <Clock className="w-4 h-4" />
                   <span className="font-mono">{formatTime(currentTime)}</span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <MapPin className="w-4 h-4" />
-                  <span>Lucknow, UP</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <WeatherIcon className="w-4 h-4" />
-                  <span>{weather.temp}°C</span>
-                </div>
+                <Weather />
               </div>
             </div>
             
@@ -1061,14 +1049,7 @@ const Overview = ({ currentUser, onTabChange }) => {
                 <Clock className="w-4 h-4" />
                 <span className="font-mono">{formatTime(currentTime)}</span>
               </div>
-              <div className="flex items-center space-x-2">
-                <MapPin className="w-4 h-4" />
-                <span>Lucknow, UP</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <WeatherIcon className="w-4 h-4" />
-                <span>{weather.temp}°C</span>
-              </div>
+              <Weather />
             </div>
           </div>
           
