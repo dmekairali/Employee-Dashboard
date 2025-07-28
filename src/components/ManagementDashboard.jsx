@@ -503,9 +503,13 @@ const ManagementDashboard = ({ currentUser }) => {
     );
   };
 
+  const { items: fmsItems, requestSort: requestFMSSort, sortConfig: fmsSortConfig } = useSortableData(allData.fms);
+  const { items: delegationItems, requestSort: requestDelegationSort, sortConfig: delegationSortConfig } = useSortableData(allData.delegation);
+  const { items: htItems, requestSort: requestHTSort, sortConfig: htSortConfig } = useSortableData(allData.ht);
+  const { items: hsItems, requestSort: requestHSSort, sortConfig: hsSortConfig } = useSortableData(allData.hs);
+
   // Render FMS Analysis
   const renderFMSAnalysis = () => {
-    const { items: fmsItems, requestSort, sortConfig } = useSortableData(allData.fms);
     const totalFmsTasks = allData.fms.length;
 
     const pcAnalysis = {};
@@ -556,10 +560,10 @@ const ManagementDashboard = ({ currentUser }) => {
     });
 
     const getSortDirectionIcon = (name) => {
-        if (!sortConfig || sortConfig.key !== name) {
+        if (!fmsSortConfig || fmsSortConfig.key !== name) {
           return null;
         }
-        return sortConfig.direction === 'ascending' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />;
+        return fmsSortConfig.direction === 'ascending' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />;
     };
 
     return (
@@ -595,13 +599,13 @@ const ManagementDashboard = ({ currentUser }) => {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('name')}>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestFMSSort('name')}>
                     <div className="flex items-center">FMS Name {getSortDirectionIcon('name')}</div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('total')}>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestFMSSort('total')}>
                     <div className="flex items-center">Total Count {getSortDirectionIcon('total')}</div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('pcCount')}>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestFMSSort('pcCount')}>
                     <div className="flex items-center">PC Count {getSortDirectionIcon('pcCount')}</div>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Doers</th>
@@ -662,8 +666,6 @@ const ManagementDashboard = ({ currentUser }) => {
 
   // Render Delegation Analysis
   const renderDelegationAnalysis = () => {
-    const { items: delegationItems, requestSort, sortConfig } = useSortableData(allData.delegation);
-
     const delegationGroups = {};
     delegationItems.forEach(task => {
       const delegatedBy = task.delegated_by || task.name || 'Unknown';
@@ -692,10 +694,10 @@ const ManagementDashboard = ({ currentUser }) => {
     });
 
     const getSortDirectionIcon = (name) => {
-        if (!sortConfig || sortConfig.key !== name) {
+        if (!delegationSortConfig || delegationSortConfig.key !== name) {
           return null;
         }
-        return sortConfig.direction === 'ascending' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />;
+        return delegationSortConfig.direction === 'ascending' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />;
     };
 
     return (
@@ -707,22 +709,22 @@ const ManagementDashboard = ({ currentUser }) => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('delegatedBy')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestDelegationSort('delegatedBy')}>
                     <div className="flex items-center">Delegated By {getSortDirectionIcon('delegatedBy')}</div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('doer')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestDelegationSort('doer')}>
                     <div className="flex items-center">Doer Name {getSortDirectionIcon('doer')}</div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('total')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestDelegationSort('total')}>
                     <div className="flex items-center">Total Tasks {getSortDirectionIcon('total')}</div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('pending')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestDelegationSort('pending')}>
                     <div className="flex items-center">Pending {getSortDirectionIcon('pending')}</div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('completed')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestDelegationSort('completed')}>
                     <div className="flex items-center">Completed {getSortDirectionIcon('completed')}</div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('efficiency')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestDelegationSort('efficiency')}>
                     <div className="flex items-center">Efficiency {getSortDirectionIcon('efficiency')}</div>
                 </th>
               </tr>
@@ -763,8 +765,6 @@ const ManagementDashboard = ({ currentUser }) => {
 
   // Render Help Ticket Analysis
   const renderHelpTicketAnalysis = () => {
-    const { items: htItems, requestSort, sortConfig } = useSortableData(allData.ht);
-
     const htGroups = {};
     htItems.forEach(task => {
       const assignedTo = task.issueDelegatedTo || 'Unknown';
@@ -793,10 +793,10 @@ const ManagementDashboard = ({ currentUser }) => {
     });
 
     const getSortDirectionIcon = (name) => {
-        if (!sortConfig || sortConfig.key !== name) {
+        if (!htSortConfig || htSortConfig.key !== name) {
           return null;
         }
-        return sortConfig.direction === 'ascending' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />;
+        return htSortConfig.direction === 'ascending' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />;
     };
 
     return (
@@ -808,22 +808,22 @@ const ManagementDashboard = ({ currentUser }) => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('name')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestHTSort('name')}>
                     <div className="flex items-center">Assigned To {getSortDirectionIcon('name')}</div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('total')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestHTSort('total')}>
                     <div className="flex items-center">Total Tickets {getSortDirectionIcon('total')}</div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('pending')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestHTSort('pending')}>
                     <div className="flex items-center">Pending Reply {getSortDirectionIcon('pending')}</div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('replied')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestHTSort('replied')}>
                     <div className="flex items-center">Replied {getSortDirectionIcon('replied')}</div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('highPriority')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestHTSort('highPriority')}>
                     <div className="flex items-center">High Priority {getSortDirectionIcon('highPriority')}</div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('responseRate')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestHTSort('responseRate')}>
                     <div className="flex items-center">Response Rate {getSortDirectionIcon('responseRate')}</div>
                 </th>
               </tr>
@@ -870,8 +870,6 @@ const ManagementDashboard = ({ currentUser }) => {
 
   // Render Help Slip Analysis
   const renderHelpSlipAnalysis = () => {
-    const { items: hsItems, requestSort, sortConfig } = useSortableData(allData.hs);
-
     const hsGroups = {};
     hsItems.forEach(task => {
       const assignedTo = task.assignedTo || 'Director'; // All assigned to Director as requested
@@ -898,10 +896,10 @@ const ManagementDashboard = ({ currentUser }) => {
     });
 
     const getSortDirectionIcon = (name) => {
-        if (!sortConfig || sortConfig.key !== name) {
+        if (!hsSortConfig || hsSortConfig.key !== name) {
           return null;
         }
-        return sortConfig.direction === 'ascending' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />;
+        return hsSortConfig.direction === 'ascending' ? <ArrowUp className="w-4 h-4 ml-2" /> : <ArrowDown className="w-4 h-4 ml-2" />;
     };
 
     return (
@@ -914,22 +912,22 @@ const ManagementDashboard = ({ currentUser }) => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('name')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestHSSort('name')}>
                     <div className="flex items-center">Assigned To {getSortDirectionIcon('name')}</div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('total')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestHSSort('total')}>
                     <div className="flex items-center">Total Slips {getSortDirectionIcon('total')}</div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('pending')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestHSSort('pending')}>
                     <div className="flex items-center">Pending Reply {getSortDirectionIcon('pending')}</div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('replied')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestHSSort('replied')}>
                     <div className="flex items-center">Replied {getSortDirectionIcon('replied')}</div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('raisedBy')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestHSSort('raisedBy')}>
                     <div className="flex items-center">Unique Requesters {getSortDirectionIcon('raisedBy')}</div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestSort('responseRate')}>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer" onClick={() => requestHSSort('responseRate')}>
                     <div className="flex items-center">Response Rate {getSortDirectionIcon('responseRate')}</div>
                 </th>
               </tr>
