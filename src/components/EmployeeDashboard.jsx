@@ -114,11 +114,6 @@ console.log('Registering callback for user:', currentUser.name);
     setShowNewTaskModal(false);
   };
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   // Role-based navigation items
   const getNavigationItems = (permissions) => {
     const allItems = [

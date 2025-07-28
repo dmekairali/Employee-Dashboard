@@ -23,4 +23,4 @@ const TimeDisplay = () => {
   );
 };
 
-export default Clock;
+export default TimeDisplay;
