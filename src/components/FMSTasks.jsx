@@ -242,6 +242,17 @@ const FMSTasks = ({ currentUser }) => {
     }));
   };
 
+  React.useEffect(() => {
+    if (showModal) {
+      document.body.classList.add('no-scroll');
+    } else {
+      document.body.classList.remove('no-scroll');
+    }
+    return () => {
+      document.body.classList.remove('no-scroll');
+    };
+  }, [showModal]);
+
   const TaskModal = ({ task, onClose }) => {
     const taskInfo = parseTaskInfo(getTaskInfo(task));
 
