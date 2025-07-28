@@ -95,10 +95,10 @@ const HTTasks = ({ currentUser }) => {
           task.solution2 = row[10] || '';
           task.solution3 = row[11] || '';
           task.attachment = row[12] || ''; // Column 13 (index 12)
-          task.problemSolvingLink = row[13] || ''; // Column 14 (index 13)
+          task.problemSolvingLink = row[14] || ''; // Column 14 (index 13)
           task.replyLink = row[14] || ''; // Column 15 (index 14)
           task.newLink = row[15] || '';
-          task.replyPlanned = row[17] || '';  // Column 18 (index 17)
+          task.replyPlanned = row[18] || '';  // Column 18 (index 17)
           task.replyActual = row[19] || '';   // Column 20 (index 19)
           task.replyTimeDelay = row[20] || '';
           task.resolveTicketId = row[21] || '';
