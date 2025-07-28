@@ -40,7 +40,7 @@ import HSHelpSlip from './HSHelpSlip';
 import AdminNotifications from './AdminNotifications';
 import NewTaskNotification from './NewTaskNotification';
 import dataManager from '../utils/DataManager';
-import Clock from './Clock';
+import TimeDisplay from './TimeDisplay';
 
 const EmployeeDashboard = React.memo(function EmployeeDashboard({ currentUser, onLogout }) {
   const [selectedTab, setSelectedTab] = useState('notifications'); // Changed default to notifications
@@ -418,7 +418,7 @@ console.log('Registering callback for user:', currentUser.name);
                 {currentUser.role} Dashboard
               </h2>
               <p className="text-gray-600">
-                Welcome back, {currentUser.name.split(' ')[0]} • <Clock />
+                Welcome back, {currentUser.name.split(' ')[0]} • <TimeDisplay />
               </p>
             </div>
             
