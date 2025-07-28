@@ -42,7 +42,7 @@ import NewTaskNotification from './NewTaskNotification';
 import dataManager from '../utils/DataManager';
 import TimeDisplay from './TimeDisplay';
 
-const EmployeeDashboard = React.memo(function EmployeeDashboard({ currentUser, onLogout }) {
+const EmployeeDashboard = ({ currentUser, onLogout }) => {
   const [selectedTab, setSelectedTab] = useState('notifications'); // Changed default to notifications
   const [notifications, setNotifications] = useState(6);
   const [newTaskNotifications, setNewTaskNotifications] = useState([]);
