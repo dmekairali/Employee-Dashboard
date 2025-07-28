@@ -572,6 +572,7 @@ const FMSTasks = ({ currentUser }) => {
                         onClick={() => {
                           setSelectedTask(task);
                           setShowModal(true);
+                          document.body.classList.add('no-scroll');
                         }}
                       >
                         <div className="flex items-start justify-between">
@@ -651,6 +652,7 @@ const FMSTasks = ({ currentUser }) => {
           onClose={() => {
             setShowModal(false);
             setSelectedTask(null);
+            document.body.classList.remove('no-scroll');
           }} 
         />
       )}

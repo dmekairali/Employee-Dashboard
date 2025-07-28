@@ -393,6 +393,17 @@ const HTTasks = ({ currentUser }) => {
   const stats = getStats();
   const subTabs = getSubTabs();
 
+  React.useEffect(() => {
+    if (showModal) {
+      document.body.classList.add('no-scroll');
+    } else {
+      document.body.classList.remove('no-scroll');
+    }
+    return () => {
+      document.body.classList.remove('no-scroll');
+    };
+  }, [showModal]);
+
   // Get counts for current sub-tab
   const getCurrentSubTabCount = () => {
     if (selectedMainTab === 'raisedOnYou') {
@@ -413,18 +424,7 @@ const HTTasks = ({ currentUser }) => {
     return 0;
   };
 
-  const TaskModal = ({ task, onClose }) => {
-  React.useEffect(() => {
-    if (showModal) {
-      document.body.classList.add('no-scroll');
-    } else {
-      document.body.classList.remove('no-scroll');
-    }
-    return () => {
-      document.body.classList.remove('no-scroll');
-    };
-  }, [showModal]);
-  return (
+  const TaskModal = ({ task, onClose }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-gray-200">
@@ -809,6 +809,7 @@ const HTTasks = ({ currentUser }) => {
                   onClick={() => {
                     setSelectedTask(task);
                     setShowModal(true);
+                    document.body.classList.add('no-scroll');
                   }}
                 >
                   <div className="flex items-start justify-between">
@@ -886,6 +887,7 @@ const HTTasks = ({ currentUser }) => {
           onClose={() => {
             setShowModal(false);
             setSelectedTask(null);
+            document.body.classList.remove('no-scroll');
           }} 
         />
       )}
