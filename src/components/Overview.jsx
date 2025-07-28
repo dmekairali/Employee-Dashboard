@@ -188,7 +188,7 @@ const Overview = ({ currentUser, onTabChange }) => {
   // Periodic refresh of cached data
   useEffect(() => {
     if (!loading) {
-      const interval = setInterval(loadCachedData, 30000); // Every 30 seconds after initial load
+      const interval = setInterval(loadCachedData, 900000); // 15 minutes = 900,000 ms
       return () => clearInterval(interval);
     }
   }, [loading, loadCachedData]);
