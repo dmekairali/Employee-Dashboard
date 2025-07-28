@@ -49,7 +49,7 @@ const LoginPage = ({ onLogin }) => {
 
       // Process employee data from sheet
       const employeeData = rows
-        .filter(row => row.length >= 13 && row[13] === 'Active') // Filter by Status column (Active employees only)
+        .filter(row => row.length >= 13 && row[14] === 'Active') // Filter by Status column (Active employees only)
         .map((row, index) => ({
           id: row[0] || `EMP${String(index + 1).padStart(3, '0')}`,
           name: row[1] || 'Unknown',
@@ -57,7 +57,7 @@ const LoginPage = ({ onLogin }) => {
           passkey: row[3] || '',
           role: row[4] || 'Employee',
           department: row[5] || 'General',
-          status: row[13] || 'Active',
+          status: row[14] || 'Active',
           permissions: {
             canViewOverview: (row[6] || '').toLowerCase() === 'true',
             canViewHT: (row[7] || '').toLowerCase() === 'true',
@@ -65,7 +65,8 @@ const LoginPage = ({ onLogin }) => {
             canViewFMS: (row[9] || '').toLowerCase() === 'true',
             canViewAnalytics: (row[10] || '').toLowerCase() === 'true',
             canViewPC: (row[11] || '').toLowerCase() === 'true',
-            canViewHS: (row[12] || '').toLowerCase() === 'true'
+            canViewHS: (row[12] || '').toLowerCase() === 'true',
+            canViewAdmin: (row[13] || '').toLowerCase() === 'true'
           }
         }));
 
