@@ -132,7 +132,7 @@ console.log('Registering callback for user:', currentUser.name);
       { id: 'ht-tasks', label: 'HT Tasks', icon: UserPlus, permission: 'canViewHT' },
       { id: 'delegation', label: 'Delegation', icon: Users, permission: 'canViewDelegation' },
       { id: 'fms', label: 'FMS', icon: FileText, permission: 'canViewFMS' },
-      { id: 'pc', label: 'PC', icon: Clipboard, permission: 'canViewPC' },
+      { id: 'pc', label: 'PC Dashboard', icon: Clipboard, permission: 'canViewPC' },
       { id: 'hs', label: 'HelpSlip', icon: UserPlus, permission: 'canViewHS' },
       { id: 'analytics', label: 'Analytics', icon: BarChart3, permission: 'canViewAnalytics' },
       { id: 'admin', label: 'Admin', icon: Settings, permission: 'canViewAdmin' },
