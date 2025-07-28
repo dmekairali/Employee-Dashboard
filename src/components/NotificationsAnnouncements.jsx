@@ -16,126 +16,57 @@ import {
   Archive,
   Star,
   Filter,
-  Search
+  Search,
+  RefreshCw,
+  Loader
 } from 'lucide-react';
+import { useNotifications, useNotificationReadStatus } from '../hooks/useNotifications';
 
 const NotificationsAnnouncements = ({ currentUser }) => {
   const [selectedTab, setSelectedTab] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
-  const [readItems, setReadItems] = useState(new Set());
 
-  // Demo data - replace with actual API call
-  const [notifications] = useState([
-    {
-      id: 'notif-001',
-      type: 'urgent',
-      title: 'System Maintenance Scheduled',
-      message: 'The system will be under maintenance on Sunday, July 28th from 2:00 AM to 6:00 AM IST. Please complete all pending tasks before this time.',
-      timestamp: '2025-07-26T10:30:00Z',
-      author: 'IT Admin',
-      category: 'system',
-      isPinned: true,
-      isGlobal: true,
-      targetRoles: ['all'],
-      expiresAt: '2025-07-28T06:00:00Z',
-      actionRequired: true,
-      actionText: 'Acknowledge',
-      actionLink: '#'
-    },
-    {
-      id: 'notif-002',
-      type: 'info',
-      title: 'New Dashboard Features Released',
-      message: 'We have released new caching and auto-refresh features. Tasks now auto-refresh every 15 minutes and you will receive notifications for new tasks.',
-      timestamp: '2025-07-25T14:20:00Z',
-      author: 'Product Team',
-      category: 'feature',
-      isPinned: false,
-      isGlobal: true,
-      targetRoles: ['all'],
-      actionRequired: false
-    },
-    {
-      id: 'notif-003',
-      type: 'warning',
-      title: 'FMS System Performance',
-      message: 'We are experiencing slower response times in the FMS system. Our team is working to resolve this issue. Expected resolution time: 2 hours.',
-      timestamp: '2025-07-26T09:15:00Z',
-      author: 'Operations Team',
-      category: 'performance',
-      isPinned: false,
-      isGlobal: false,
-      targetRoles: ['Operation', 'PC'],
-      actionRequired: false
+  // Fetch notifications and announcements from Google Sheets
+  const { data, loading, error, refresh, lastRefresh } = useNotifications(currentUser);
+  const { notifications = [], announcements = [] } = data || {};
+
+  // Manage read status locally
+  const { getReadItems, markAsRead, markAsUnread } = useNotificationReadStatus(currentUser);
+  const [readItems, setReadItems] = useState(getReadItems());
+
+  // Update read items when user changes
+  useEffect(() => {
+    setReadItems(getReadItems());
+  }, [currentUser]);
+
+  const toggleRead = (id) => {
+    if (readItems.has(id)) {
+      const newReadItems = markAsUnread(id);
+      setReadItems(newReadItems);
+    } else {
+      const newReadItems = markAsRead([id]);
+      setReadItems(newReadItems);
     }
-  ]);
+  };
 
-  const [announcements] = useState([
-    {
-      id: 'ann-001',
-      type: 'success',
-      title: 'Q3 Performance Results',
-      message: 'Congratulations! Our team has achieved 95% task completion rate this quarter. Special recognition to top performers in each department.',
-      timestamp: '2025-07-25T16:00:00Z',
-      author: 'Management',
-      category: 'achievement',
-      isPinned: true,
-      isGlobal: true,
-      targetRoles: ['all'],
-      actionRequired: false,
-      attachments: [
-        { name: 'Q3_Performance_Report.pdf', url: '#' }
-      ]
-    },
-    {
-      id: 'ann-002',
-      type: 'info',
-      title: 'New Team Member Joining',
-      message: 'Please welcome Rahul Singh who will be joining our Operations team as Senior Analyst starting Monday, July 29th.',
-      timestamp: '2025-07-24T11:30:00Z',
-      author: 'HR Team',
-      category: 'team',
-      isPinned: false,
-      isGlobal: true,
-      targetRoles: ['all'],
-      actionRequired: false
-    },
-    {
-      id: 'ann-003',
-      type: 'info',
-      title: 'Training Session: Advanced Excel',
-      message: 'Optional training session on Advanced Excel techniques will be conducted on August 2nd, 3:00 PM. Please register if interested.',
-      timestamp: '2025-07-23T13:45:00Z',
-      author: 'Training Team',
-      category: 'training',
-      isPinned: false,
-      isGlobal: true,
-      targetRoles: ['all'],
-      actionRequired: true,
-      actionText: 'Register Now',
-      actionLink: '#'
-    }
-  ]);
+  const markAllAsRead = () => {
+    const allIds = getFilteredItems().map(item => item.id);
+    const newReadItems = markAsRead(allIds);
+    setReadItems(newReadItems);
+  };
 
-  // Filter items based on user role and filters
+  // Filter items based on user role and current filters
   const getFilteredItems = () => {
     let allItems = [];
     
     if (selectedTab === 'all' || selectedTab === 'notifications') {
-      allItems = [...allItems, ...notifications.map(item => ({ ...item, itemType: 'notification' }))];
+      allItems = [...allItems, ...notifications];
     }
     
     if (selectedTab === 'all' || selectedTab === 'announcements') {
-      allItems = [...allItems, ...announcements.map(item => ({ ...item, itemType: 'announcement' }))];
+      allItems = [...allItems, ...announcements];
     }
-
-    // Filter by user role
-    allItems = allItems.filter(item => 
-      item.isGlobal || 
-      item.targetRoles.includes('all') || 
-      item.targetRoles.includes(currentUser.role)
-    );
 
     // Filter by type
     if (filterType !== 'all') {
@@ -146,7 +77,9 @@ const NotificationsAnnouncements = ({ currentUser }) => {
     if (searchTerm) {
       allItems = allItems.filter(item =>
         item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.message.toLowerCase().includes(searchTerm.toLowerCase())
+        item.message.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.category.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -161,23 +94,7 @@ const NotificationsAnnouncements = ({ currentUser }) => {
   };
 
   const filteredItems = getFilteredItems();
-
-  const toggleRead = (id) => {
-    setReadItems(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(id)) {
-        newSet.delete(id);
-      } else {
-        newSet.add(id);
-      }
-      return newSet;
-    });
-  };
-
-  const markAllAsRead = () => {
-    const allIds = filteredItems.map(item => item.id);
-    setReadItems(new Set(allIds));
-  };
+  const unreadCount = filteredItems.filter(item => !readItems.has(item.id)).length;
 
   const getTypeIcon = (type) => {
     switch (type) {
@@ -210,23 +127,68 @@ const NotificationsAnnouncements = ({ currentUser }) => {
   };
 
   const formatDate = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = (now - date) / (1000 * 60 * 60);
+    try {
+      const date = new Date(timestamp);
+      if (isNaN(date.getTime())) return 'Unknown date';
+      
+      const now = new Date();
+      const diffInHours = (now - date) / (1000 * 60 * 60);
 
-    if (diffInHours < 1) {
-      const minutes = Math.floor(diffInHours * 60);
-      return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
-    } else if (diffInHours < 24) {
-      const hours = Math.floor(diffInHours);
-      return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
-    } else {
-      const days = Math.floor(diffInHours / 24);
-      return `${days} day${days !== 1 ? 's' : ''} ago`;
+      if (diffInHours < 1) {
+        const minutes = Math.floor(diffInHours * 60);
+        return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+      } else if (diffInHours < 24) {
+        const hours = Math.floor(diffInHours);
+        return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+      } else {
+        const days = Math.floor(diffInHours / 24);
+        if (days < 7) {
+          return `${days} day${days !== 1 ? 's' : ''} ago`;
+        } else {
+          return date.toLocaleDateString();
+        }
+      }
+    } catch (error) {
+      return 'Unknown date';
     }
   };
 
-  const unreadCount = filteredItems.filter(item => !readItems.has(item.id)).length;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Loading notifications...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center p-8">
+        <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Notifications</h3>
+        <p className="text-gray-600 mb-4">{error}</p>
+        <button 
+          onClick={refresh}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <RefreshCw className="w-4 h-4 inline mr-2" />
+          Retry
+        </button>
+        
+        {/* Fallback message for missing configuration */}
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <h4 className="text-sm font-medium text-blue-900 mb-2">Setup Required:</h4>
+          <ul className="text-sm text-blue-800 text-left space-y-1">
+            <li>• Configure REACT_APP_GOOGLE_SHEETS_SPREADSHEET_ID_NOTIFICATIONS</li>
+            <li>• Create "Notifications" and "Announcements" sheets</li>
+            <li>• Add column headers as specified in documentation</li>
+            <li>• Share spreadsheet with service account</li>
+          </ul>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -244,16 +206,30 @@ const NotificationsAnnouncements = ({ currentUser }) => {
                 {unreadCount} unread
               </span>
             )}
+            {lastRefresh && (
+              <span className="text-sm text-gray-500 ml-2">
+                • Last updated: {lastRefresh.toLocaleTimeString()}
+              </span>
+            )}
           </p>
         </div>
-        {unreadCount > 0 && (
+        <div className="flex items-center space-x-3">
+          {unreadCount > 0 && (
+            <button 
+              onClick={markAllAsRead}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            >
+              Mark All as Read
+            </button>
+          )}
           <button 
-            onClick={markAllAsRead}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            onClick={refresh}
+            className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+            title="Refresh"
           >
-            Mark All as Read
+            <RefreshCw className="w-5 h-5" />
           </button>
-        )}
+        </div>
       </div>
 
       {/* Tab Navigation */}
@@ -336,6 +312,18 @@ const NotificationsAnnouncements = ({ currentUser }) => {
                 : 'No notifications or announcements available'
               }
             </p>
+            {!searchTerm && !loading && (notifications.length === 0 && announcements.length === 0) && (
+              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <p className="text-sm text-blue-800 mb-2">
+                  To see notifications and announcements here:
+                </p>
+                <ul className="text-sm text-blue-700 text-left space-y-1">
+                  <li>• Add data to your Google Sheets</li>
+                  <li>• Ensure targeting includes your role: {currentUser.role}</li>
+                  <li>• Check that items are marked as "Active"</li>
+                </ul>
+              </div>
+            )}
           </div>
         ) : (
           filteredItems.map((item) => {
@@ -374,6 +362,12 @@ const NotificationsAnnouncements = ({ currentUser }) => {
                           )}
                           {item.itemType}
                         </span>
+
+                        {item.category && (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            {item.category}
+                          </span>
+                        )}
                       </div>
 
                       {/* Title */}
@@ -395,6 +389,8 @@ const NotificationsAnnouncements = ({ currentUser }) => {
                               <a 
                                 key={index}
                                 href={attachment.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
                                 className="text-blue-600 hover:text-blue-800 text-sm flex items-center"
                               >
                                 <ExternalLink className="w-3 h-3 mr-1" />
@@ -406,10 +402,12 @@ const NotificationsAnnouncements = ({ currentUser }) => {
                       )}
 
                       {/* Action Button */}
-                      {item.actionRequired && item.actionText && (
+                      {item.actionRequired && item.actionText && item.actionLink && (
                         <div className="mb-4">
                           <a 
                             href={item.actionLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                               item.type === 'urgent' 
                                 ? 'bg-red-600 text-white hover:bg-red-700'
@@ -464,6 +462,20 @@ const NotificationsAnnouncements = ({ currentUser }) => {
           })
         )}
       </div>
+
+      {/* Load More Button - if you want to implement pagination */}
+      {filteredItems.length > 0 && (
+        <div className="text-center pt-6">
+          <p className="text-sm text-gray-500">
+            Showing {filteredItems.length} item{filteredItems.length !== 1 ? 's' : ''}
+            {unreadCount > 0 && (
+              <span className="ml-2">
+                • {unreadCount} unread
+              </span>
+            )}
+          </p>
+        </div>
+      )}
     </div>
   );
 };
