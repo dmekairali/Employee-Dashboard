@@ -40,18 +40,13 @@ import HSHelpSlip from './HSHelpSlip';
 import AdminNotifications from './AdminNotifications';
 import NewTaskNotification from './NewTaskNotification';
 import dataManager from '../utils/DataManager';
+import Clock from './Clock';
 
-const EmployeeDashboard = React.memo(({ currentUser, onLogout }) => {
-  const [currentTime, setCurrentTime] = useState(new Date());
+const EmployeeDashboard = React.memo(function EmployeeDashboard({ currentUser, onLogout }) {
   const [selectedTab, setSelectedTab] = useState('notifications'); // Changed default to notifications
   const [notifications, setNotifications] = useState(6);
   const [newTaskNotifications, setNewTaskNotifications] = useState([]);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Setup new task notifications
   useEffect(() => {
@@ -423,15 +418,7 @@ console.log('Registering callback for user:', currentUser.name);
                 {currentUser.role} Dashboard
               </h2>
               <p className="text-gray-600">
-                Welcome back, {currentUser.name.split(' ')[0]} • {currentTime.toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })} • {currentTime.toLocaleTimeString('en-US', { 
-                  hour: '2-digit', 
-                  minute: '2-digit' 
-                })}
+                Welcome back, {currentUser.name.split(' ')[0]} • <Clock />
               </p>
             </div>
             
