@@ -393,6 +393,17 @@ const HTTasks = ({ currentUser }) => {
   const stats = getStats();
   const subTabs = getSubTabs();
 
+  React.useEffect(() => {
+    if (showModal) {
+      document.body.classList.add('no-scroll');
+    } else {
+      document.body.classList.remove('no-scroll');
+    }
+    return () => {
+      document.body.classList.remove('no-scroll');
+    };
+  }, [showModal]);
+
   // Get counts for current sub-tab
   const getCurrentSubTabCount = () => {
     if (selectedMainTab === 'raisedOnYou') {
@@ -798,6 +809,7 @@ const HTTasks = ({ currentUser }) => {
                   onClick={() => {
                     setSelectedTask(task);
                     setShowModal(true);
+                    document.body.classList.add('no-scroll');
                   }}
                 >
                   <div className="flex items-start justify-between">
@@ -875,6 +887,7 @@ const HTTasks = ({ currentUser }) => {
           onClose={() => {
             setShowModal(false);
             setSelectedTask(null);
+            document.body.classList.remove('no-scroll');
           }} 
         />
       )}

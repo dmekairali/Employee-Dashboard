@@ -242,22 +242,34 @@ const FMSTasks = ({ currentUser }) => {
     }));
   };
 
+  React.useEffect(() => {
+    if (showModal) {
+      document.body.classList.add('no-scroll');
+    } else {
+      document.body.classList.remove('no-scroll');
+    }
+    return () => {
+      document.body.classList.remove('no-scroll');
+    };
+  }, [showModal]);
+
   const TaskModal = ({ task, onClose }) => {
-  const taskInfo = parseTaskInfo(getTaskInfo(task));
-  
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      {/* Backdrop - separate from scrolling container */}
+    const taskInfo = parseTaskInfo(getTaskInfo(task));
+
+    return (
       <div 
-        className="fixed inset-0 bg-black bg-opacity-50" 
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
         onClick={onClose}
-      ></div>
-      
-      {/* Modal container - centers the modal */}
-      <div className="flex items-center justify-center min-h-screen p-4">
-        {/* Modal content - scrollable */}
-        <div className="relative bg-white rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-xl">
-          {/* Header - fixed height */}
+      >
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50"
+        ></div>
+
+        <div
+          className="relative bg-white rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-xl overflow-y-auto"
+          onClick={(e) => e.stopPropagation()} // Prevent closing modal when clicking inside
+        >
+          {/* Header */}
           <div className="bg-white p-6 border-b border-gray-200 rounded-t-xl sticky top-0 z-10">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-semibold text-gray-900">FMS Task Details</h3>
@@ -270,8 +282,8 @@ const FMSTasks = ({ currentUser }) => {
             </div>
           </div>
           
-          {/* Content - scrollable area */}
-          <div className="overflow-y-auto flex-1 p-6">
+          {/* Content */}
+          <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Left column */}
               <div>
@@ -373,9 +385,8 @@ const FMSTasks = ({ currentUser }) => {
           </div>
         </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
   if (loading) {
     return (
@@ -561,6 +572,7 @@ const FMSTasks = ({ currentUser }) => {
                         onClick={() => {
                           setSelectedTask(task);
                           setShowModal(true);
+                          document.body.classList.add('no-scroll');
                         }}
                       >
                         <div className="flex items-start justify-between">
@@ -640,6 +652,7 @@ const FMSTasks = ({ currentUser }) => {
           onClose={() => {
             setShowModal(false);
             setSelectedTask(null);
+            document.body.classList.remove('no-scroll');
           }} 
         />
       )}

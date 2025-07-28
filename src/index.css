@@ -28,3 +28,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+body.no-scroll {
+  overflow: hidden;
+}
