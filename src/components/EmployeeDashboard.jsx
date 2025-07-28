@@ -139,18 +139,6 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
     return () => clearInterval(interval);
   }, [calculatePendingCounts]);
 
-  // Also update counts when cache data changes (immediate updates)
-  useEffect(() => {
-    const updateCounts = () => {
-      const newCounts = calculatePendingCounts();
-      setPendingCounts(newCounts);
-    };
-
-    // Listen for cache updates
-    const checkInterval = setInterval(updateCounts, 10000); // Check every 10 seconds for immediate updates
-
-    return () => clearInterval(checkInterval);
-  }, [calculatePendingCounts]);
 
   // Setup new task notifications
   useEffect(() => {
