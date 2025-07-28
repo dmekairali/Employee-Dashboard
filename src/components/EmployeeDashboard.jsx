@@ -44,7 +44,6 @@ import dataManager from '../utils/DataManager';
 import TimeDisplay from './TimeDisplay';
 
 const EmployeeDashboard = ({ currentUser, onLogout }) => {
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [selectedTab, setSelectedTab] = useState('notifications');
   const [notifications, setNotifications] = useState(6);
   const [newTaskNotifications, setNewTaskNotifications] = useState([]);
@@ -58,11 +57,6 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
     pc: 0,
     hs: 0
   });
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Function to calculate pending counts from cached data
   const calculatePendingCounts = useMemo(() => {
@@ -433,15 +427,7 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
               </h2>
               <p className="text-gray-600">
                 {selectedTab === 'overview' 
-                  ? `Welcome back, ${currentUser.name.split(' ')[0]} • ${currentTime.toLocaleDateString('en-US', { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })} • ${currentTime.toLocaleTimeString('en-US', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}`
+                  ? <TimeDisplay />
                   : `${currentUser.role} • ${currentUser.department}`
                 }
               </p>
