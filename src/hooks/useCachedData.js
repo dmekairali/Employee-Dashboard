@@ -53,7 +53,7 @@ export const useCachedData = (component, currentUser, fetchFunction, options = {
       try {
         newData = await fetchFunction();
         console.log(`[useCachedData] Fetched data for ${component}:`, newData);
-      } catch (fetchError) { {
+      } catch (fetchError) {
         // If fetch fails but we have cached data, use that
         if (cachedData && fallbackToEmpty) {
           console.warn(`Fetch failed for ${component}, using cached data:`, fetchError);
