@@ -95,10 +95,10 @@ const HTTasks = ({ currentUser }) => {
           task.solution2 = row[10] || '';
           task.solution3 = row[11] || '';
           task.attachment = row[12] || ''; // Column 13 (index 12)
-          task.problemSolvingLink = row[14] || ''; // Column 14 (index 13)
+          task.problemSolvingLink = row[13] || ''; // Column 14 (index 13)
           task.replyLink = row[14] || ''; // Column 15 (index 14)
           task.newLink = row[15] || '';
-          task.replyPlanned = row[18] || '';  // Column 18 (index 17)
+          task.replyPlanned = row[18] || '';  // Column 19 (index 18)
           task.replyActual = row[19] || '';   // Column 20 (index 19)
           task.replyTimeDelay = row[20] || '';
           task.resolveTicketId = row[21] || '';
@@ -132,12 +132,50 @@ const HTTasks = ({ currentUser }) => {
   }, []);
 
   // Use cached data hook
-  const { data: allTasks, loading, error, refresh, lastRefresh } = useCachedData(
-    'ht', 
-    currentUser, 
-    fetchHTData
-  );
+  const { data: allTasks, loading, error, refresh: originalRefresh, lastRefresh } = useCachedData(
+  'ht', 
+  currentUser, 
+  fetchHTData
+);
 
+
+// Add local loading state for manual refresh
+const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+
+// Enhanced refresh function that ensures fresh data from server  
+const refresh = useCallback(async () => {
+  console.log(`🔄 Force refreshing HT data for ${currentUser.name} - fetching fresh from server...`);
+  
+  setIsManualRefreshing(true);
+  
+  try {
+    // Import dataManager to clear cache first
+    const { default: dataManager } = await import('../utils/DataManager');
+    
+    // Clear the specific cache entry to force fresh fetch
+    const cacheKey = `ht_${currentUser.name}`;
+    dataManager.cache.delete(cacheKey);
+    console.log(`🗑️ Cleared cache for ${cacheKey}`);
+    
+    // Directly call the fetch function to get fresh data from server
+    const freshData = await fetchHTData();
+    
+    // Update cache with fresh data
+    dataManager.setData('ht', currentUser.name, freshData);
+    
+    console.log(`✅ Successfully refreshed HT data: ${freshData.length} tasks`);
+    return freshData;
+  } catch (error) {
+    console.error('❌ Error during manual refresh:', error);
+    throw error;
+  } finally {
+    setIsManualRefreshing(false);
+  }
+}, [fetchHTData, currentUser.name]);
+
+// Combined loading state
+const isRefreshing = loading || isManualRefreshing;
+  
   const cleanHeaderName = (header) => {
     return header
       .toLowerCase()
@@ -393,17 +431,6 @@ const HTTasks = ({ currentUser }) => {
   const stats = getStats();
   const subTabs = getSubTabs();
 
-  React.useEffect(() => {
-    if (showModal) {
-      document.body.classList.add('no-scroll');
-    } else {
-      document.body.classList.remove('no-scroll');
-    }
-    return () => {
-      document.body.classList.remove('no-scroll');
-    };
-  }, [showModal]);
-
   // Get counts for current sub-tab
   const getCurrentSubTabCount = () => {
     if (selectedMainTab === 'raisedOnYou') {
@@ -633,14 +660,21 @@ const HTTasks = ({ currentUser }) => {
             )}
           </p>
         </div>
-        <button 
-          onClick={refresh}
-          className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-          title="Refresh"
-        >
-          <RefreshCw className="w-5 h-5" />
-          <span className="text-sm">Refresh</span>
-        </button>
+         <button 
+  onClick={refresh}
+  disabled={isRefreshing}
+  className={`p-2 text-white rounded-lg transition-colors flex items-center space-x-2 ${
+    isRefreshing 
+      ? 'bg-gray-400 cursor-not-allowed' 
+      : 'bg-green-600 hover:bg-green-700'
+  }`}
+  title={isRefreshing ? "Refreshing..." : "Refresh"}
+>
+  <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+  <span className="text-sm">
+    {isRefreshing ? 'Refreshing...' : 'Refresh'}
+  </span>
+</button>
       </div>
 
       {/* Stats Cards */}
@@ -809,7 +843,6 @@ const HTTasks = ({ currentUser }) => {
                   onClick={() => {
                     setSelectedTask(task);
                     setShowModal(true);
-                    document.body.classList.add('no-scroll');
                   }}
                 >
                   <div className="flex items-start justify-between">
@@ -887,7 +920,6 @@ const HTTasks = ({ currentUser }) => {
           onClose={() => {
             setShowModal(false);
             setSelectedTask(null);
-            document.body.classList.remove('no-scroll');
           }} 
         />
       )}
