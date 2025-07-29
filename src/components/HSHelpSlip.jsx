@@ -171,7 +171,9 @@ const isRefreshing = loading || isManualRefreshing;
       .replace(/^_|_$/g, '');
   };
 
-  const isDirector = currentUser.role === 'director' || currentUser.department === 'director';
+ const isDirector = 
+  (currentUser?.role?.toLowerCase() === 'director') || 
+  (currentUser?.department?.toLowerCase() === 'director');
 
   const getTasksForMainTab = () => {
   let filteredTasks;
