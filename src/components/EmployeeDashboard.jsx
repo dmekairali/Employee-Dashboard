@@ -1,5 +1,6 @@
 // Updated EmployeeDashboard.jsx with Management Tab
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useContext } from 'react';
+import { ThemeContext } from '../context/ThemeContext';
 import { 
   Bell, 
   Search, 
@@ -32,7 +33,9 @@ import {
   Phone,
   Clipboard,
   Gauge, // Added for Management Dashboard
-  Shield  // Added for Management Dashboard
+  Shield,  // Added for Management Dashboard
+  Sun,
+  Moon
 } from 'lucide-react';
 import NotificationsAnnouncements from './NotificationsAnnouncements';
 import DelegationTasks from './DelegationTasks';
@@ -52,6 +55,7 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
   const [notifications, setNotifications] = useState(6);
   const [newTaskNotifications, setNewTaskNotifications] = useState([]);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const { isDarkMode, toggleTheme } = useContext(ThemeContext);
   
   // State for pending counts
   const [pendingCounts, setPendingCounts] = useState({
@@ -371,17 +375,17 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       {/* Sidebar */}
-      <div className="fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 z-40">
+      <div className="fixed left-0 top-0 h-full w-64 bg-sidebar-background border-r border-border-color z-40">
         <div className="p-6">
           <div className="flex items-center space-x-3">
             <div className={`w-10 h-10 bg-gradient-to-br ${getRoleColor(currentUser.role)} rounded-lg flex items-center justify-center`}>
               <span className="text-white font-bold text-lg">K</span>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Kairali</h1>
-              <p className="text-sm text-gray-500">TaskApp Dashboard</p>
+              <h1 className="text-xl font-bold text-foreground">Kairali</h1>
+              <p className="text-sm text-sidebar-foreground">TaskApp Dashboard</p>
             </div>
           </div>
         </div>
@@ -396,12 +400,12 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
                   ? item.special 
                     ? 'bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 border-r-2 border-purple-600' 
                     : 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
-                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                  : 'text-sidebar-foreground hover:bg-gray-50 hover:text-gray-900'
               } ${item.special ? 'font-semibold' : ''}`}
             >
               <div className="flex items-center space-x-3">
                 <item.icon className={`w-5 h-5 ${item.special ? 'text-purple-600' : ''}`} />
-                <span className="font-medium">{item.label}</span>
+                <span className="font-medium text-foreground">{item.label}</span>
                 {item.special && (
                   <Shield className="w-4 h-4 text-purple-500" />
                 )}
@@ -414,30 +418,30 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
         </nav>
 
         {/* User Profile Section */}
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-border-color">
           {/* Cache Status Indicator */}
-          <div className="mb-3 px-4 py-2 bg-gray-50 rounded-lg">
-            <div className="flex items-center justify-between text-xs text-gray-600">
+          <div className="mb-3 px-4 py-2 bg-background rounded-lg">
+            <div className="flex items-center justify-between text-xs text-sidebar-foreground">
               <span>Cache Status</span>
               <div className="flex items-center space-x-1">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                 <span>Active</span>
               </div>
             </div>
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-xs text-sidebar-foreground mt-1">
               Last update: {new Date().toLocaleTimeString()}
             </div>
           </div>
 
-          <div className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-gray-50 cursor-pointer">
+          <div className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-background cursor-pointer">
             <div className={`w-8 h-8 bg-gradient-to-br ${getRoleColor(currentUser.role)} rounded-full flex items-center justify-center`}>
               <span className="text-white font-semibold text-sm">
                 {currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
               </span>
             </div>
             <div className="flex-1">
-              <p className="font-medium text-gray-900">{currentUser.name}</p>
-              <p className="text-sm text-gray-500">
+              <p className="font-medium text-foreground">{currentUser.name}</p>
+              <p className="text-sm text-sidebar-foreground">
                 {currentUser.role}
                 {isManagementUser() && (
                   <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-semibold">
@@ -448,7 +452,7 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
             </div>
             <button 
               onClick={onLogout}
-              className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+              className="p-1 text-sidebar-foreground hover:text-red-500 transition-colors"
               title="Logout"
             >
               <LogOut className="w-4 h-4" />
@@ -460,10 +464,10 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
       {/* Main Content */}
       <div className="ml-64">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-8 py-4">
+        <header className="bg-card-background border-b border-border-color px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+              <h2 className="text-2xl font-bold text-foreground flex items-center">
                 {selectedTab === 'management' && (
                   <Gauge className="w-6 h-6 mr-3 text-purple-600" />
                 )}
@@ -474,7 +478,7 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
                   </span>
                 )}
               </h2>
-              <p className="text-gray-600">
+              <p className="text-sidebar-foreground">
                 {selectedTab === 'overview' 
                   ? <TimeDisplay />
                   : selectedTab === 'management'
@@ -486,15 +490,15 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
             
             <div className="flex items-center space-x-4">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sidebar-foreground w-4 h-4" />
                 <input
                   type="text"
                   placeholder={selectedTab === 'management' ? "Search organizations..." : "Search tickets, tasks..."}
-                  className="pl-10 pr-4 py-2 w-80 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="pl-10 pr-4 py-2 w-80 border border-border-color rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
                 />
               </div>
               
-              <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+              <button className="relative p-2 text-sidebar-foreground hover:text-foreground hover:bg-background rounded-lg transition-colors">
                 <Bell className="w-5 h-5" />
                 {notifications > 0 && (
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
@@ -503,8 +507,16 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
                 )}
               </button>
               
-              <button className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+              <button className="p-2 text-sidebar-foreground hover:text-foreground hover:bg-background rounded-lg transition-colors">
                 <Settings className="w-5 h-5" />
+              </button>
+
+              <button
+                onClick={toggleTheme}
+                className="p-2 text-sidebar-foreground hover:text-foreground hover:bg-background rounded-lg transition-colors"
+                title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              >
+                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
               </button>
             </div>
           </div>
@@ -541,9 +553,9 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
           )}
 
           {selectedTab === 'analytics' && currentUser.permissions.canViewAnalytics && (
-            <div className="bg-white rounded-xl p-8 border border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Analytics</h2>
-              <p className="text-gray-600">Analytics component will be implemented here.</p>
+            <div className="bg-card-background rounded-xl p-8 border border-border-color">
+              <h2 className="text-2xl font-bold text-foreground mb-6">Analytics</h2>
+              <p className="text-sidebar-foreground">Analytics component will be implemented here.</p>
             </div>
           )}
 
@@ -558,23 +570,23 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
 
           {/* Access Denied Messages */}
           {selectedTab === 'management' && !isManagementUser() && (
-            <div className="bg-white rounded-xl p-8 border border-gray-200">
+            <div className="bg-card-background rounded-xl p-8 border border-border-color">
               <div className="text-center">
                 <Shield className="w-12 h-12 text-purple-500 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Management Access Required</h2>
-                <p className="text-gray-600">You need management-level permissions to access this dashboard.</p>
-                <p className="text-gray-500 text-sm mt-2">Contact your administrator to request Management access.</p>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Management Access Required</h2>
+                <p className="text-sidebar-foreground">You need management-level permissions to access this dashboard.</p>
+                <p className="text-sidebar-foreground text-sm mt-2">Contact your administrator to request Management access.</p>
               </div>
             </div>
           )}
 
           {selectedTab === 'admin' && !currentUser.permissions.canViewAdmin && (
-            <div className="bg-white rounded-xl p-8 border border-gray-200">
+            <div className="bg-card-background rounded-xl p-8 border border-border-color">
               <div className="text-center">
                 <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-                <p className="text-gray-600">You don't have permission to access the Admin panel.</p>
-                <p className="text-gray-500 text-sm mt-2">Contact your administrator to request Admin access.</p>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Access Denied</h2>
+                <p className="text-sidebar-foreground">You don't have permission to access the Admin panel.</p>
+                <p className="text-sidebar-foreground text-sm mt-2">Contact your administrator to request Admin access.</p>
               </div>
             </div>
           )}
