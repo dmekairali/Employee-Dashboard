@@ -88,12 +88,49 @@ const PCTasks = ({ currentUser }) => {
     }
   }, [currentUser.name]);
 
-  // Use cached data hook
-  const { data: allTasks, loading, error, refresh, lastRefresh } = useCachedData(
+  // Use cached data hook with force refresh option
+  const { data: allTasks, loading, error, refresh: originalRefresh, lastRefresh } = useCachedData(
     'pc', 
     currentUser, 
     fetchPCFMSData
   );
+
+  // Add local loading state for manual refresh
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+
+  // Enhanced refresh function that ensures fresh data from server
+  const refresh = useCallback(async () => {
+    console.log(`🔄 Force refreshing PC data for ${currentUser.name} - fetching fresh from server...`);
+    
+    setIsManualRefreshing(true);
+    
+    try {
+      // Import dataManager to clear cache first
+      const { default: dataManager } = await import('../utils/DataManager');
+      
+      // Clear the specific cache entry to force fresh fetch
+      const cacheKey = `pc_${currentUser.name}`;
+      dataManager.cache.delete(cacheKey);
+      console.log(`🗑️ Cleared cache for ${cacheKey}`);
+      
+      // Directly call the fetch function to get fresh data from server
+      const freshData = await fetchPCFMSData();
+      
+      // Update cache with fresh data
+      dataManager.setData('pc', currentUser.name, freshData);
+      
+      console.log(`✅ Successfully refreshed PC data: ${freshData.length} tasks`);
+      return freshData;
+    } catch (error) {
+      console.error('❌ Error during manual refresh:', error);
+      throw error;
+    } finally {
+      setIsManualRefreshing(false);
+    }
+  }, [fetchPCFMSData, currentUser.name]);
+
+  // Combined loading state
+  const isRefreshing = loading || isManualRefreshing;
 
   const cleanHeaderName = (header) => {
     return header
@@ -136,11 +173,11 @@ const PCTasks = ({ currentUser }) => {
     return task.link || '';
   };
 
-  // Check if task is overdue (has delay content)
+  // Check if task is overdue (has delay content) - UPDATED TO USE NUMERIC LOGIC
   const isTaskOverdue = (task) => {
-  const delay = parseFloat(task.delay || 0);
-  return delay > 0; // Any positive number means overdue
-};
+    const delay = parseFloat(task.delay || 0);
+    return delay > 0; // Any positive number means overdue
+  };
 
   // Filter tasks - separate FMS tasks from Checklist tasks
   const { fmsTasks, checklistTasks } = useMemo(() => {
@@ -663,11 +700,18 @@ const PCTasks = ({ currentUser }) => {
         </div>
         <button 
           onClick={refresh}
-          className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
-          title="Refresh"
+          disabled={isRefreshing}
+          className={`p-2 text-white rounded-lg transition-colors flex items-center space-x-2 ${
+            isRefreshing 
+              ? 'bg-gray-400 cursor-not-allowed' 
+              : 'bg-green-600 hover:bg-green-700'
+          }`}
+          title={isRefreshing ? "Refreshing..." : "Refresh"}
         >
-          <RefreshCw className="w-5 h-5" />
-          <span className="text-sm">Refresh</span>
+          <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span className="text-sm">
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </span>
         </button>
       </div>
 
