@@ -39,6 +39,7 @@ const HTTasks = ({ currentUser }) => {
   const [showModal, setShowModal] = useState(false);
 
   // Fetch function for HT data
+  // ✅ FIXED: Fetch function with SERVER-SIDE USER FILTERING
   const fetchHTData = useCallback(async () => {
     try {
       const spreadsheetId = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_ID_HT;
@@ -48,7 +49,7 @@ const HTTasks = ({ currentUser }) => {
       const params = new URLSearchParams({
         sheetId: spreadsheetId,
         sheetName: sheetName,
-        range: 'A10:AZ' // Starting from row 10 as header
+        range: 'A10:AZ' // You might want to limit this to A10:AZ1000 for performance
       });
       
       const response = await fetch(`${apiUrl}?${params}`);
@@ -67,7 +68,7 @@ const HTTasks = ({ currentUser }) => {
       // Get header row
       const headers = rows[0];
       
-      // Process data rows (skip header)
+      // ✅ PROCESS AND FILTER BY USER AT FETCH LEVEL
       const htTasks = rows.slice(1)
         .filter(row => row && row.length > 0) // Filter out empty rows
         .map((row, index) => {
@@ -94,25 +95,23 @@ const HTTasks = ({ currentUser }) => {
           task.solution1 = row[9] || '';
           task.solution2 = row[10] || '';
           task.solution3 = row[11] || '';
-          task.attachment = row[12] || ''; // Column 13 (index 12)
-          
-          task.problemSolvingLink = row[14] || ''; // Column 14 (index 13)
-          task.replyLink = row[14] || ''; // Column 14 (index 14)
+          task.attachment = row[12] || '';
+          task.problemSolvingLink = row[14] || '';
+          task.replyLink = row[14] || '';
           task.newLink = row[14] || '';
-          
-          task.replyPlanned = row[18] || '';  // Column 19 (index 18)
-          task.replyActual = row[19] || '';   // Column 20 (index 19)
+          task.replyPlanned = row[18] || '';
+          task.replyActual = row[19] || '';
           task.replyTimeDelay = row[20] || '';
           task.resolveTicketId = row[21] || '';
           task.resolveRaisedBy = row[22] || '';
           task.resolveAssignedTo = row[23] || '';
-          task.recommendation = row[24] || ''; // Column 25 (index 24)
+          task.recommendation = row[24] || '';
           task.resolveAttachment = row[25] || '';
           task.resolveTimestamp = row[26] || '';
-          task.resolvePlanned = row[27] || '';  // Column 28 (index 27)
-          task.resolveActual = row[28] || '';   // Column 29 (index 28)
+          task.resolvePlanned = row[27] || '';
+          task.resolveActual = row[28] || '';
           task.resolveTimeDelay = row[29] || '';
-          task.resolveLink = row[30] || ''; // Column 31 (index 30)
+          task.resolveLink = row[30] || '';
           task.finalTicketId = row[31] || '';
           task.finalDoer = row[32] || '';
           task.problemResolved = row[33] || '';
@@ -121,17 +120,34 @@ const HTTasks = ({ currentUser }) => {
 
           // Add computed fields
           task.id = index + 1;
-          task.rowNumber = index + 11; // Actual row number in sheet (10 for header + index)
+          task.rowNumber = index + 11;
           
           return task;
+        })
+        // ✅ KEY CHANGE: FILTER BY USER HERE AT FETCH LEVEL
+        .filter(task => {
+          // Filter for tasks relevant to current user
+          const isRaisedByUser = task.name === currentUser.name;
+          const isDelegatedToUser = task.issueDelegatedTo === currentUser.name;
+          const isAssignedToUser = task.resolveAssignedTo === currentUser.name;
+          
+          // Only include tasks that are relevant to this user
+          return isRaisedByUser || isDelegatedToUser || isAssignedToUser;
+        })
+        // ✅ ADDITIONAL FILTERING: Remove truly empty tasks
+        .filter(task => {
+          // Ensure task has at least basic data
+          return task.ticketId || task.challengeIssue || task.name;
         });
 
+      console.log(`✅ HT Data filtered for ${currentUser.name}: ${htTasks.length} relevant tasks out of ${rows.length - 1} total rows`);
       return htTasks;
+      
     } catch (error) {
       console.error('Error fetching HT data:', error);
       throw error;
     }
-  }, []);
+  }, [currentUser.name]); // ✅ Include currentUser.name in dependency
 
   // Use cached data hook
   const { data: allTasks, loading, error, refresh: originalRefresh, lastRefresh } = useCachedData(
@@ -187,7 +203,7 @@ const isRefreshing = loading || isManualRefreshing;
   };
 
   // Filter tasks based on main tab
- const getTasksForMainTab = () => {
+  const getTasksForMainTab = () => {
   let tasks;
   if (selectedMainTab === 'raisedOnYou') {
     tasks = allTasks.filter(task => task.issueDelegatedTo === currentUser.name);
