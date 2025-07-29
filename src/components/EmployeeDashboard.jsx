@@ -114,17 +114,33 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
           }).length;
         }
 
-        // HS Tasks - Reply pending for user
-        if (currentUser.permissions.canViewHS) {
-          const hsData = dataManager.getDataWithFallback('hs', currentUser.name);
-          const userHSData = hsData.filter(task => 
-            task.name === currentUser.name || task.assignedTo === currentUser.name
-          );
-          counts.hs = userHSData.filter(task => 
-            task.replyPlanned && task.replyPlanned.trim() !== '' &&
-            (!task.replyActual || task.replyActual.trim() === '')
-          ).length;
-        }
+
+       // HS Tasks - Reply pending (role-based logic)
+if (currentUser.permissions.canViewHS) {
+  const hsData = dataManager.getDataWithFallback('hs', currentUser.name);
+  
+  // Check if user is director
+  const isDirector = 
+    (currentUser?.role?.toLowerCase() === 'director') || 
+    (currentUser?.department?.toLowerCase() === 'director');
+  
+  if (isDirector) {
+    // Directors: count all help slips awaiting director's reply
+    counts.hs = hsData.filter(task => 
+      task.helpSlipId && task.helpSlipId.trim() !== '' &&
+      (!task.replyActual || task.replyActual.trim() === '')
+    ).length;
+  } else {
+    // Regular users: count only their own pending tasks
+    const userHSData = hsData.filter(task => 
+      task.name === currentUser.name || task.assignedTo === currentUser.name
+    );
+    counts.hs = userHSData.filter(task => 
+      task.replyPlanned && task.replyPlanned.trim() !== '' &&
+      (!task.replyActual || task.replyActual.trim() === '')
+    ).length;
+  }
+}
 
       } catch (error) {
         console.error('Error calculating pending counts:', error);
