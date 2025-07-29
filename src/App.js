@@ -1,16 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import LoginPage from './components/LoginPage';
 import EmployeeDashboard from './components/EmployeeDashboard';
+import { ThemeProvider, ThemeContext } from './context/ThemeContext';
 import './index.css';
 
-function App() {
+function AppContent() {
   const [currentUser, setCurrentUser] = useState(null);
+  const { isDarkMode } = useContext(ThemeContext);
 
   const handleLogin = (user) => {
+    const loginTime = Date.now();
     setCurrentUser(user);
     console.log("START")
-    // Store user in localStorage for persistence
+    // Store user and login time in localStorage for persistence
     localStorage.setItem('currentUser', JSON.stringify(user));
+    localStorage.setItem('loginTime', loginTime);
   };
 
   const handleLogout = () => {
@@ -25,17 +29,53 @@ function App() {
     }
   }, []);
 
+  React.useEffect(() => {
+    let logoutTimer;
+
+    if (currentUser) {
+      // Set a timer for 10 hours (in milliseconds)
+      const timeout = 10 * 60 * 60 * 1000;
+      logoutTimer = setTimeout(() => {
+        handleLogout();
+      }, timeout);
+    }
+
+    // Clear the timer if the component unmounts or the user logs out
+    return () => {
+      clearTimeout(logoutTimer);
+    };
+  }, [currentUser, handleLogout]);
+
+  React.useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
+  const loginTime = localStorage.getItem('loginTime');
+
   return (
     <div className="App">
       {currentUser ? (
         <EmployeeDashboard 
           currentUser={currentUser} 
-          onLogout={handleLogout} 
+          onLogout={handleLogout}
+          loginTime={loginTime}
         />
       ) : (
         <LoginPage onLogin={handleLogin} />
       )}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
 
