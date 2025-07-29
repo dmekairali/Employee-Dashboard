@@ -138,9 +138,9 @@ const PCTasks = ({ currentUser }) => {
 
   // Check if task is overdue (has delay content)
   const isTaskOverdue = (task) => {
-    const delay = getDelay(task);
-    return delay && delay.trim() !== '';
-  };
+  const delay = parseFloat(task.delay || 0);
+  return delay > 0; // Any positive number means overdue
+};
 
   // Filter tasks - separate FMS tasks from Checklist tasks
   const { fmsTasks, checklistTasks } = useMemo(() => {
