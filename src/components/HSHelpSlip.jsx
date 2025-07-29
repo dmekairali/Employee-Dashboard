@@ -174,12 +174,22 @@ const isRefreshing = loading || isManualRefreshing;
   const isDirector = currentUser.role === 'director' || currentUser.department === 'director';
 
   const getTasksForMainTab = () => {
-    if (selectedMainTab === 'raisedByYou') {
-      return allTasks.filter(task => task.name === currentUser.name);
-    } else {
-      return allTasks.filter(task => task.helpSlipId && task.helpSlipId.trim() !== '');
-    }
-  };
+  let filteredTasks;
+  
+  if (selectedMainTab === 'raisedByYou') {
+    filteredTasks = allTasks.filter(task => task.name === currentUser.name);
+  } else {
+    filteredTasks = allTasks.filter(task => task.helpSlipId && task.helpSlipId.trim() !== '');
+  }
+
+  // Sort by timestamp in descending order (newest first)
+  return filteredTasks.sort((a, b) => {
+    // Handle cases where timestamp might be missing or invalid
+    const dateA = a.timestamp ? new Date(a.timestamp) : new Date(0);
+    const dateB = b.timestamp ? new Date(b.timestamp) : new Date(0);
+    return dateB - dateA; // Descending order
+  });
+};
 
   const getSubTabs = () => {
     if (selectedMainTab === 'raisedByYou') {
