@@ -34,7 +34,7 @@ import { useCachedData } from '../hooks/useCachedData';
 const HTTasks = ({ currentUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMainTab, setSelectedMainTab] = useState('raisedOnYou'); // 'raisedOnYou' or 'raisedByYou'
-  const [selectedSubTab, setSelectedSubTab] = useState('resolvePending'); // Changed default
+  const [selectedSubTab, setSelectedSubTab] = useState('replyPending'); // Changed default
   const [selectedTask, setSelectedTask] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -95,9 +95,11 @@ const HTTasks = ({ currentUser }) => {
           task.solution2 = row[10] || '';
           task.solution3 = row[11] || '';
           task.attachment = row[12] || ''; // Column 13 (index 12)
-          task.problemSolvingLink = row[13] || ''; // Column 14 (index 13)
-          task.replyLink = row[14] || ''; // Column 15 (index 14)
-          task.newLink = row[15] || '';
+          
+          task.problemSolvingLink = row[14] || ''; // Column 14 (index 13)
+          task.replyLink = row[14] || ''; // Column 14 (index 14)
+          task.newLink = row[14] || '';
+          
           task.replyPlanned = row[18] || '';  // Column 19 (index 18)
           task.replyActual = row[19] || '';   // Column 20 (index 19)
           task.replyTimeDelay = row[20] || '';
