@@ -611,47 +611,60 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
       )}
 
       {showRightSidebar && (
-        <div className="fixed top-0 right-0 h-full w-80 bg-card-background shadow-lg z-50 transform transition-transform duration-300 ease-in-out translate-x-0">
-          <div className="p-6 border-b border-border-color flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-foreground">Profile</h2>
-            <button onClick={() => setShowRightSidebar(false)} className="text-sidebar-foreground hover:text-red-500 transition-colors">
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-          <div className="p-8 text-center">
-            <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-white font-bold text-4xl">
-                {currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-              </span>
-            </div>
-            <h3 className="text-2xl font-semibold text-foreground">{currentUser.name}</h3>
-            <p className="text-sidebar-foreground">{currentUser.email}</p>
-          </div>
-          <div className="bg-background p-6 space-y-4">
-            <div className="flex items-center space-x-4 p-3 bg-card-background rounded-lg">
-              <Briefcase className="w-6 h-6 text-primary" />
-              <div>
-                <p className="text-sm text-sidebar-foreground">Role</p>
-                <p className="font-semibold text-foreground">{currentUser.role}</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4 p-3 bg-card-background rounded-lg">
-              <Clock className="w-6 h-6 text-primary" />
-              <div>
-                <p className="text-sm text-sidebar-foreground">Logged In At</p>
-                <p className="font-semibold text-foreground">{new Date(parseInt(loginTime, 10)).toLocaleString()}</p>
-              </div>
-            </div>
-            <button
-              onClick={onLogout}
-              className="w-full mt-4 bg-gradient-to-r from-red-500 to-pink-500 text-white py-3 px-4 rounded-lg font-semibold hover:from-red-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-background transition-all duration-300"
-            >
-              <LogOut className="w-5 h-5 inline mr-2" />
-              Sign Out
-            </button>
-          </div>
+  <div className="fixed top-0 right-0 h-full w-80 bg-white shadow-lg z-50">
+    {/* Header */}
+    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+      <h2 className="text-2xl font-bold text-gray-900">Profile</h2>
+      <button 
+        onClick={() => setShowRightSidebar(false)} 
+        className="text-gray-500 hover:text-red-500 transition-colors"
+      >
+        <X className="w-6 h-6" />
+      </button>
+    </div>
+
+    {/* Profile Section */}
+    <div className="p-8 text-center">
+      <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+        <span className="text-white font-bold text-4xl">
+          {currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+        </span>
+      </div>
+      <h3 className="text-2xl font-semibold text-gray-900">{currentUser.name}</h3>
+      <p className="text-gray-600">{currentUser.email}</p>
+    </div>
+
+    {/* Info Cards */}
+    <div className="bg-gray-50 p-6 space-y-4">
+      <div className="flex items-center space-x-4 p-3 bg-white rounded-lg shadow-sm">
+        <Briefcase className="w-6 h-6 text-blue-500" />
+        <div>
+          <p className="text-sm text-gray-500">Role</p>
+          <p className="font-semibold text-gray-900">{currentUser.role}</p>
         </div>
-      )}
+      </div>
+
+      <div className="flex items-center space-x-4 p-3 bg-white rounded-lg shadow-sm">
+        <Clock className="w-6 h-6 text-blue-500" />
+        <div>
+          <p className="text-sm text-gray-500">Logged In At</p>
+          <p className="font-semibold text-gray-900">
+            {new Date(parseInt(loginTime, 10)).toLocaleString()}
+          </p>
+        </div>
+      </div>
+
+      {/* Logout Button */}
+      <button
+        onClick={onLogout}
+        className="w-full mt-4 bg-gradient-to-r from-red-500 to-pink-500 text-white py-3 px-4 rounded-lg font-semibold hover:from-red-600 hover:to-pink-600 transition-all duration-300"
+      >
+        <LogOut className="w-5 h-5 inline mr-2" />
+        Sign Out
+      </button>
+    </div>
+  </div>
+)}
     </div>
   );
 };
