@@ -24,8 +24,16 @@ import { useCachedData } from '../hooks/useCachedData';
 
 const HSHelpSlip = ({ currentUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedMainTab, setSelectedMainTab] = useState('raisedByYou');
+  // ✅ Set default tabs based on user role
+  const isDirector_check = 
+    (currentUser?.role?.toLowerCase() === 'director') || 
+    (currentUser?.department?.toLowerCase() === 'director');
+  
+  const [selectedMainTab, setSelectedMainTab] = useState(
+    isDirector_check ? 'directorTasks' : 'raisedByYou'
+  );
   const [selectedSubTab, setSelectedSubTab] = useState('replyPending');
+
   const [selectedTask, setSelectedTask] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
@@ -198,11 +206,14 @@ const isRefreshing = loading || isManualRefreshing;
   (currentUser?.role?.toLowerCase() === 'director') || 
   (currentUser?.department?.toLowerCase() === 'director');
 
-  const getTasksForMainTab = () => {
+  const getTasksForMainTab = () => {  
   let filteredTasks;
   
   if (selectedMainTab === 'raisedByYou') {
     filteredTasks = allTasks.filter(task => task.name === currentUser.name);
+  } else if (selectedMainTab === 'directorTasks') {
+    // ✅ NEW: Handle director tasks specifically
+    filteredTasks = allTasks.filter(task => task.helpSlipId && task.helpSlipId.trim() !== '');
   } else {
     filteredTasks = allTasks.filter(task => task.helpSlipId && task.helpSlipId.trim() !== '');
   }
@@ -615,48 +626,92 @@ const isRefreshing = loading || isManualRefreshing;
 </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">HS Raised By You</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.raisedByYou}</p>
-            </div>
-            <FileText className="w-8 h-8 text-blue-500" />
+     {/* Stats Cards - Make them dynamic based on selected tab */}
+<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+  {selectedMainTab === 'raisedByYou' ? (
+    // Regular user stats cards
+    <>
+      <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">HS Raised By You</p>
+            <p className="text-2xl font-bold text-blue-600">{stats.raisedByYou}</p>
           </div>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Reply Pending</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.replyPending}</p>
-            </div>
-            <Clock className="w-8 h-8 text-yellow-500" />
-          </div>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Acknowledge Pending</p>
-              <p className="text-2xl font-bold text-orange-600">{stats.acknowledgePending}</p>
-            </div>
-            <Eye className="w-8 h-8 text-orange-500" />
-          </div>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Completed</p>
-              <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
-            </div>
-            <CheckCircle className="w-8 h-8 text-green-500" />
-          </div>
+          <FileText className="w-8 h-8 text-blue-500" />
         </div>
       </div>
+      <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">Reply Pending</p>
+            <p className="text-2xl font-bold text-yellow-600">{stats.replyPending}</p>
+          </div>
+          <Clock className="w-8 h-8 text-yellow-500" />
+        </div>
+      </div>
+      <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">Acknowledge Pending</p>
+            <p className="text-2xl font-bold text-orange-600">{stats.acknowledgePending}</p>
+          </div>
+          <Eye className="w-8 h-8 text-orange-500" />
+        </div>
+      </div>
+      <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">Completed</p>
+            <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
+          </div>
+          <CheckCircle className="w-8 h-8 text-green-500" />
+        </div>
+      </div>
+    </>
+  ) : (
+    // Director stats cards
+    <>
+      <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">Total Help Slips</p>
+            <p className="text-2xl font-bold text-blue-600">{stats.directorTasks}</p>
+          </div>
+          <FileText className="w-8 h-8 text-blue-500" />
+        </div>
+      </div>
+      <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">Reply Pending</p>
+            <p className="text-2xl font-bold text-yellow-600">{stats.directorReplyPending}</p>
+          </div>
+          <Clock className="w-8 h-8 text-yellow-500" />
+        </div>
+      </div>
+      <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">Replied</p>
+            <p className="text-2xl font-bold text-green-600">{stats.directorReplied}</p>
+          </div>
+          <CheckCircle className="w-8 h-8 text-green-500" />
+        </div>
+      </div>
+      <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-gray-500">Completion Rate</p>
+            <p className="text-2xl font-bold text-purple-600">
+              {stats.directorTasks > 0 ? Math.round((stats.directorReplied / stats.directorTasks) * 100) : 0}%
+            </p>
+          </div>
+          <Award className="w-8 h-8 text-purple-500" />
+        </div>
+      </div>
+    </>
+  )}
+</div>
 
       {/* Main Tabs */}
       <div className="bg-white rounded-lg border border-gray-200">
