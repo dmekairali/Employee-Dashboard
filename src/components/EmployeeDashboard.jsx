@@ -49,12 +49,15 @@ import NewTaskNotification from './NewTaskNotification';
 import Overview from './Overview';
 import dataManager from '../utils/DataManager';
 import TimeDisplay from './TimeDisplay';
+import LoginTimer from './LoginTimer';
+import UserProfileModal from './UserProfileModal';
 
-const EmployeeDashboard = ({ currentUser, onLogout }) => {
+const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
   const [selectedTab, setSelectedTab] = useState('notifications');
   const [notifications, setNotifications] = useState(6);
   const [newTaskNotifications, setNewTaskNotifications] = useState([]);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
   
   // State for pending counts
@@ -431,6 +434,7 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
             <div className="text-xs text-sidebar-foreground mt-1">
               Last update: {new Date().toLocaleTimeString()}
             </div>
+            <LoginTimer loginTime={loginTime} />
           </div>
 
           <div className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-background cursor-pointer">
@@ -507,7 +511,10 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
                 )}
               </button>
               
-              <button className="p-2 text-sidebar-foreground hover:text-foreground hover:bg-background rounded-lg transition-colors">
+              <button
+                onClick={() => setShowProfileModal(true)}
+                className="p-2 text-sidebar-foreground hover:text-foreground hover:bg-background rounded-lg transition-colors"
+              >
                 <Settings className="w-5 h-5" />
               </button>
 
@@ -599,6 +606,15 @@ const EmployeeDashboard = ({ currentUser, onLogout }) => {
           notifications={newTaskNotifications}
           onClose={handleCloseNewTaskModal}
           onMarkAllRead={handleMarkAllRead}
+        />
+      )}
+
+      {showProfileModal && (
+        <UserProfileModal
+          user={currentUser}
+          loginTime={loginTime}
+          onLogout={onLogout}
+          onClose={() => setShowProfileModal(false)}
         />
       )}
     </div>

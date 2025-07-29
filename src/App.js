@@ -9,10 +9,12 @@ function AppContent() {
   const { isDarkMode } = useContext(ThemeContext);
 
   const handleLogin = (user) => {
+    const loginTime = Date.now();
     setCurrentUser(user);
     console.log("START")
-    // Store user in localStorage for persistence
+    // Store user and login time in localStorage for persistence
     localStorage.setItem('currentUser', JSON.stringify(user));
+    localStorage.setItem('loginTime', loginTime);
   };
 
   const handleLogout = () => {
@@ -52,12 +54,15 @@ function AppContent() {
     }
   }, [isDarkMode]);
 
+  const loginTime = localStorage.getItem('loginTime');
+
   return (
     <div className="App">
       {currentUser ? (
         <EmployeeDashboard 
           currentUser={currentUser} 
-          onLogout={handleLogout} 
+          onLogout={handleLogout}
+          loginTime={loginTime}
         />
       ) : (
         <LoginPage onLogin={handleLogin} />
