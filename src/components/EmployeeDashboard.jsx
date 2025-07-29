@@ -139,14 +139,14 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
     const updateCounts = () => {
       const newCounts = calculatePendingCounts();
       setPendingCounts(newCounts);
-      console.log('Updated pending counts:', newCounts);
+     // console.log('Updated pending counts:', newCounts);
     };
 
     // Initial update
     updateCounts();
 
-    // Set up interval for every 2 minutes (120,000 ms)
-    const interval = setInterval(updateCounts, 2 * 60 * 1000);
+    // Set up interval for every 30 sec
+    const interval = setInterval(updateCounts, 30 * 1000);
 
     return () => clearInterval(interval);
   }, [calculatePendingCounts]);
@@ -155,7 +155,7 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
   useEffect(() => {
     if (currentUser) {
       const handleNewTasks = (notification) => {
-        console.log('New tasks detected:', notification);
+        //console.log('New tasks detected:', notification);
 
         setNewTaskNotifications(prev => {
           const existingIndex = prev.findIndex(n => n.component === notification.component);
