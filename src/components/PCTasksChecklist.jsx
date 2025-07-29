@@ -54,9 +54,9 @@ const PCTasksChecklist = ({ tasks, currentUser, loading, error }) => {
   };
 
   const isTaskOverdue = (task) => {
-    const delay = getDelay(task);
-    return delay && delay.trim() !== '';
-  };
+  const delay = parseFloat(task.delay || 0);
+  return delay > 0; // Any positive number means overdue
+};
 
   // Filter and group tasks by doer
   const groupedChecklistTasks = useMemo(() => {
