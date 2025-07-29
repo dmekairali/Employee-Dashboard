@@ -35,7 +35,9 @@ import {
   Gauge, // Added for Management Dashboard
   Shield,  // Added for Management Dashboard
   Sun,
-  Moon
+  Moon,
+  Briefcase,
+  X
 } from 'lucide-react';
 import NotificationsAnnouncements from './NotificationsAnnouncements';
 import DelegationTasks from './DelegationTasks';
@@ -50,14 +52,13 @@ import Overview from './Overview';
 import dataManager from '../utils/DataManager';
 import TimeDisplay from './TimeDisplay';
 import LoginTimer from './LoginTimer';
-import UserProfileModal from './UserProfileModal';
 
 const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
   const [selectedTab, setSelectedTab] = useState('notifications');
   const [notifications, setNotifications] = useState(6);
   const [newTaskNotifications, setNewTaskNotifications] = useState([]);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showRightSidebar, setShowRightSidebar] = useState(false);
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
   
   // State for pending counts
@@ -512,7 +513,7 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
               </button>
               
               <button
-                onClick={() => setShowProfileModal(true)}
+                onClick={() => setShowRightSidebar(true)}
                 className="p-2 text-sidebar-foreground hover:text-foreground hover:bg-background rounded-lg transition-colors"
               >
                 <Settings className="w-5 h-5" />
@@ -609,13 +610,47 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
         />
       )}
 
-      {showProfileModal && (
-        <UserProfileModal
-          user={currentUser}
-          loginTime={loginTime}
-          onLogout={onLogout}
-          onClose={() => setShowProfileModal(false)}
-        />
+      {showRightSidebar && (
+        <div className="fixed top-0 right-0 h-full w-80 bg-card-background shadow-lg z-50 transform transition-transform duration-300 ease-in-out translate-x-0">
+          <div className="p-6 border-b border-border-color flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-foreground">Profile</h2>
+            <button onClick={() => setShowRightSidebar(false)} className="text-sidebar-foreground hover:text-red-500 transition-colors">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <div className="p-8 text-center">
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-white font-bold text-4xl">
+                {currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+              </span>
+            </div>
+            <h3 className="text-2xl font-semibold text-foreground">{currentUser.name}</h3>
+            <p className="text-sidebar-foreground">{currentUser.email}</p>
+          </div>
+          <div className="bg-background p-6 space-y-4">
+            <div className="flex items-center space-x-4 p-3 bg-card-background rounded-lg">
+              <Briefcase className="w-6 h-6 text-primary" />
+              <div>
+                <p className="text-sm text-sidebar-foreground">Role</p>
+                <p className="font-semibold text-foreground">{currentUser.role}</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4 p-3 bg-card-background rounded-lg">
+              <Clock className="w-6 h-6 text-primary" />
+              <div>
+                <p className="text-sm text-sidebar-foreground">Logged In At</p>
+                <p className="font-semibold text-foreground">{new Date(parseInt(loginTime, 10)).toLocaleString()}</p>
+              </div>
+            </div>
+            <button
+              onClick={onLogout}
+              className="w-full mt-4 bg-gradient-to-r from-red-500 to-pink-500 text-white py-3 px-4 rounded-lg font-semibold hover:from-red-600 hover:to-pink-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-background transition-all duration-300"
+            >
+              <LogOut className="w-5 h-5 inline mr-2" />
+              Sign Out
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
