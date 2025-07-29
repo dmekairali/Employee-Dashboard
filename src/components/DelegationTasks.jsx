@@ -105,11 +105,49 @@ const DelegationTasks = ({ currentUser }) => {
   }, [currentUser.name]);
 
   // Use cached data hook
-  const { data: tasks, loading, error, refresh, lastRefresh } = useCachedData(
+  const { data: tasks, loading, error, refresh:originalRefresh, lastRefresh } = useCachedData(
     'delegation', 
     currentUser, 
     fetchDelegationData
   );
+
+
+  // Add local loading state for manual refresh
+const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+
+// Enhanced refresh function that ensures fresh data from server  
+const refresh = useCallback(async () => {
+  console.log(`🔄 Force refreshing Delegation data for ${currentUser.name} - fetching fresh from server...`);
+  
+  setIsManualRefreshing(true);
+  
+  try {
+    // Import dataManager to clear cache first
+    const { default: dataManager } = await import('../utils/DataManager');
+    
+    // Clear the specific cache entry to force fresh fetch
+    const cacheKey = `delegation_${currentUser.name}`;
+    dataManager.cache.delete(cacheKey);
+    console.log(`🗑️ Cleared cache for ${cacheKey}`);
+    
+    // Directly call the fetch function to get fresh data from server
+    const freshData = await fetchDelegationData();
+    
+    // Update cache with fresh data
+    dataManager.setData('delegation', currentUser.name, freshData);
+    
+    console.log(`✅ Successfully refreshed Delegation data: ${freshData.length} tasks`);
+    return freshData;
+  } catch (error) {
+    console.error('❌ Error during manual refresh:', error);
+    throw error;
+  } finally {
+    setIsManualRefreshing(false);
+  }
+}, [fetchDelegationData, currentUser.name]);
+
+// Combined loading state
+const isRefreshing = loading || isManualRefreshing;
 
   const cleanHeaderName = (header) => {
     return header
@@ -579,13 +617,20 @@ const DelegationTasks = ({ currentUser }) => {
           </p>
         </div>
         <button 
-          onClick={refresh}
-          className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-          title="Refresh"
-        >
-          <RefreshCw className="w-5 h-5" />
-          <span className="text-sm">Refresh</span>
-        </button>
+  onClick={refresh}
+  disabled={isRefreshing}
+  className={`p-2 text-white rounded-lg transition-colors flex items-center space-x-2 ${
+    isRefreshing 
+      ? 'bg-gray-400 cursor-not-allowed' 
+      : 'bg-green-600 hover:bg-green-700'
+  }`}
+  title={isRefreshing ? "Refreshing..." : "Refresh"}
+>
+  <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+  <span className="text-sm">
+    {isRefreshing ? 'Refreshing...' : 'Refresh'}
+  </span>
+</button>
       </div>
 
       {/* Stats Cards */}
