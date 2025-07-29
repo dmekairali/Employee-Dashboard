@@ -185,13 +185,14 @@ const Overview = ({ currentUser, onTabChange }) => {
     });
   }, [currentUser?.name]);
 
-  // Periodic refresh of cached data
-  useEffect(() => {
-    if (!loading) {
-      const interval = setInterval(loadCachedData, 900000); // 15 minutes = 900,000 ms
-      return () => clearInterval(interval);
-    }
-  }, [loading, loadCachedData]);
+  // ✅ REPLACE with cache update listener:
+useEffect(() => {
+  if (!loading) {
+    // Listen for cache updates more frequently (every 30 seconds)
+    const interval = setInterval(loadCachedData, 30000); // 30 seconds
+    return () => clearInterval(interval);
+  }
+}, [loading, loadCachedData]);
 
   // Calculate dynamic stats based on real data
   const stats = useMemo(() => {
@@ -237,7 +238,13 @@ const Overview = ({ currentUser, onTabChange }) => {
     }
     
     if (currentUser.permissions.canViewFMS) {
-      const totalFMSTasks = fmsData.length;
+      
+      const userFMSData = fmsData.filter(task => {
+  const taskDoer = task.doer || task.assignedTo || '';
+  return taskDoer === currentUser.name;
+});
+const totalFMSTasks = userFMSData.length;
+
       const delayedTasks = fmsData.filter(task => task.delay && task.delay.trim() !== '').length;
       
       baseStats.push({
@@ -273,28 +280,48 @@ const Overview = ({ currentUser, onTabChange }) => {
     }
     
     if (currentUser.permissions.canViewHS) {
-      // Filter HS data for current user first
-      const userHSData = hsData.filter(task => 
-        task.name === currentUser.name || task.assignedTo === currentUser.name
-      );
-      
-      const replyPendingHS = userHSData.filter(task => 
-        task.replyPlanned && task.replyPlanned.trim() !== '' &&
-        (!task.replyActual || task.replyActual.trim() === '')
-      ).length;
-      
-      baseStats.push({
-        title: 'Help Slips', 
-        value: replyPendingHS.toString(), 
-        change: userHSData.length > 0 ? `${userHSData.length} total` : 'No slips', 
-        trend: replyPendingHS > 0 ? 'up' : 'stable', 
-        icon: UserPlus, 
-        color: 'text-orange-600 bg-orange-50',
-        description: 'Help slips requiring attention',
-        onClick: () => onTabChange('hs'),
-        total: userHSData.length
-      });
-    }
+  // Check if user is director
+  const isDirector = 
+    (currentUser?.role?.toLowerCase() === 'director') || 
+    (currentUser?.department?.toLowerCase() === 'director');
+  
+  let replyPendingHS, totalHS;
+  
+  if (isDirector) {
+    // Directors: show all help slips awaiting director's reply
+    const directorTasks = hsData.filter(task => 
+      task.helpSlipId && task.helpSlipId.trim() !== ''
+    );
+    replyPendingHS = directorTasks.filter(task => 
+      (!task.replyActual || task.replyActual.trim() === '')
+    ).length;
+    totalHS = directorTasks.length;
+  } else {
+    // Regular users: show only their own tasks
+    const userHSData = hsData.filter(task => 
+      task.name === currentUser.name || task.assignedTo === currentUser.name
+    );
+    replyPendingHS = userHSData.filter(task => 
+      task.replyPlanned && task.replyPlanned.trim() !== '' &&
+      (!task.replyActual || task.replyActual.trim() === '')
+    ).length;
+    totalHS = userHSData.length;
+  }
+  
+  baseStats.push({
+    title: 'Help Slips', 
+    value: replyPendingHS.toString(), 
+    change: totalHS > 0 ? `${totalHS} total` : 'No slips', 
+    trend: replyPendingHS > 0 ? 'up' : 'stable', 
+    icon: UserPlus, 
+    color: 'text-orange-600 bg-orange-50',
+    description: isDirector 
+      ? 'Help slips awaiting your reply as director'
+      : 'Help slips requiring attention',
+    onClick: () => onTabChange('hs'),
+    total: totalHS
+  });
+}
     
     // Performance calculation
     const allTasks = [...delegationData, ...fmsData, ...htData, ...pcData, ...hsData];
