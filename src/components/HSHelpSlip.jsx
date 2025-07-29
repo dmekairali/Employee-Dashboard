@@ -89,9 +89,9 @@ const HSHelpSlip = ({ currentUser }) => {
         task.solution2 = row[8] || '';            // Column 9
         task.solution3 = row[9] || '';            // Column 10
         task.attachment = row[10] || '';          // Column 11
-        task.problemSolvingLink1 = row[11] || ''; // Column 12
-        task.problemSolvingLink = row[12] || '';  // Column 13
-        task.replyLink = row[13] || '';           // Column 14
+        task.problemSolvingLink1 = row[13] || ''; // Column 12
+        task.problemSolvingLink = row[13] || '';  // Column 13
+        task.replyLink = row[13] || row[14] || '';           // Column 14
         task.newLink = row[14] || '';             // Column 15
         task.replyPlanned = row[18] || '';        // Column 19
         task.replyActual = row[19] || '';         // Column 20
@@ -311,16 +311,23 @@ const isRefreshing = loading || isManualRefreshing;
   };
 
   const getTaskLink = (task) => {
-    if (selectedMainTab === 'raisedByYou') {
-      if (selectedSubTab === 'acknowledgePending') {
-        return task.resolveLink;
-      }
-      return null;
-    } else if (isDirector && selectedSubTab === 'replyPending') {
-      return task.replyLink;
+  if (selectedMainTab === 'raisedByYou') {
+    if (selectedSubTab === 'acknowledgePending') {
+      return task.resolveLink;
     }
     return null;
-  };
+  } else if (selectedMainTab === 'directorTasks') {
+    // ✅ NEW: Handle director tasks
+    if (selectedSubTab === 'replyPending') {
+      return task.replyLink; // Show reply link for directors
+    }
+    return null;
+  } else if (isDirector && selectedSubTab === 'replyPending') {
+    // Keep existing logic for backward compatibility
+    return task.replyLink;
+  }
+  return null;
+};
 
   const getStats = () => {
     const raisedByYouTasks = allTasks.filter(task => task.name === currentUser.name);
