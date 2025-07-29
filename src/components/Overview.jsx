@@ -359,8 +359,9 @@ const totalFMSTasks = userFMSData.length;
           const isAssignedToUser = task.issueDelegatedTo === currentUser.name;
           const isRaisedByUser = task.name === currentUser.name;
           const isHighPriority = task.challengeLevel?.toUpperCase() === 'HIGH';
-          
-          return (isAssignedToUser || isRaisedByUser) && isHighPriority;
+          const isPending = (!task.replyActual || task.replyActual.trim() === '');
+
+          return (isAssignedToUser || isRaisedByUser) && isHighPriority && isPending;
         })
         .slice(0, 2)
         .map(task => ({
@@ -384,8 +385,10 @@ const totalFMSTasks = userFMSData.length;
           const isAssignedToUser = (task.doer_name || task.doer) === currentUser.name;
           const score = parseFloat(task['80_20'] || task.priority_score || 0);
           const isHighPriority = score >= 75;
+          const isPending = (task.delegation_status || 'pending').toLowerCase().includes('pending');
+
           
-          return isAssignedToUser && isHighPriority;
+          return isAssignedToUser && isHighPriority && isPending;
         })
         .slice(0, 2)
         .map(task => ({
@@ -480,30 +483,35 @@ const totalFMSTasks = userFMSData.length;
     const allActivities = [];
     
     // Helper function to format time
-    const formatActivityTime = (dateStr) => {
-      if (!dateStr || dateStr === 'Recently') return 'Recently';
-      
-      try {
-        const date = new Date(dateStr);
-        if (isNaN(date.getTime())) return 'Recently';
-        
-        const now = new Date();
-        const diffInHours = (now - date) / (1000 * 60 * 60);
-        
-        if (diffInHours < 1) {
-          const minutes = Math.floor(diffInHours * 60);
-          return `${minutes}m ago`;
-        } else if (diffInHours < 24) {
-          const hours = Math.floor(diffInHours);
-          return `${hours}h ago`;
-        } else {
-          const days = Math.floor(diffInHours / 24);
-          return `${days}d ago`;
-        }
-      } catch (error) {
-        return 'Recently';
-      }
-    };
+    // ✅ FIXED VERSION:
+const formatActivityTime = (dateStr) => {
+  if (!dateStr || dateStr === 'Recently') return 'Recently';
+  
+  try {
+    const date = new Date(dateStr);
+    // ✅ ADD: Check if date is valid before calculating
+    if (isNaN(date.getTime())) return 'Recently';
+    
+    const now = new Date();
+    const diffInHours = (now - date) / (1000 * 60 * 60);
+    
+    // ✅ ADD: Check for negative values (invalid dates)
+    if (diffInHours < 0) return 'Recently';
+    
+    if (diffInHours < 1) {
+      const minutes = Math.floor(diffInHours * 60);
+      return minutes <= 0 ? 'Just now' : `${minutes}m ago`;
+    } else if (diffInHours < 24) {
+      const hours = Math.floor(diffInHours);
+      return `${hours}h ago`;
+    } else {
+      const days = Math.floor(diffInHours / 24);
+      return `${days}d ago`;
+    }
+  } catch (error) {
+    return 'Recently';
+  }
+};
 
     // Helper function to get timestamp for sorting
     const getTimestampForSorting = (dateStr) => {
