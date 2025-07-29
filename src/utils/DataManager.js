@@ -171,6 +171,7 @@ class DataManager {
 }
 
 // Filter tasks by user based on component type
+// ✅ REPLACE WITH THIS FIXED VERSION:
 filterTasksByUser(tasks, component, userId) {
   return tasks.filter(task => {
     switch (component) {
@@ -185,13 +186,16 @@ filterTasksByUser(tasks, component, userId) {
         return task.issueDelegatedTo === userId || task.name === userId;
       
       case 'hs':
-        return task.name === userId || task.assignedTo === userId;
+        // ✅ FIX: Don't filter HS data here - it's already filtered in fetchHSData
+        // The fetchHSData function handles director vs regular user logic properly
+        return true;
       
       default:
-        return true; // Default: show all if unknown component
+        return true;
     }
   });
 }
+
 
   // Find new tasks by comparing IDs or unique identifiers
   findNewTasks(oldData, newData) {
