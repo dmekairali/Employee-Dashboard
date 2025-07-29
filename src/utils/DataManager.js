@@ -148,22 +148,50 @@ class DataManager {
 
   // Check for new tasks by comparing old and new data
   checkForNewTasks(component, oldData, newData, userId) {
-    if (!Array.isArray(oldData) || !Array.isArray(newData)) return;
+  if (!Array.isArray(oldData) || !Array.isArray(newData)) return;
 
-    const newTasks = this.findNewTasks(oldData, newData);
+  const newTasks = this.findNewTasks(oldData, newData);
+  
+  if (newTasks.length > 0) {
+    // QUICK FIX: Filter new tasks by current user
+    const userSpecificNewTasks = this.filterTasksByUser(newTasks, component, userId);
     
-    if (newTasks.length > 0) {
-      console.log(`Found ${newTasks.length} new tasks in ${component} for user ${userId}`);
+    if (userSpecificNewTasks.length > 0) {
+      console.log(`Found ${userSpecificNewTasks.length} new tasks in ${component} for user ${userId}`);
       const callback = this.newTaskCallbacks.get(userId);
       if (callback) {
         callback({
           component,
-          newTasks,
-          count: newTasks.length
+          newTasks: userSpecificNewTasks,
+          count: userSpecificNewTasks.length
         });
       }
     }
   }
+}
+
+// Filter tasks by user based on component type
+filterTasksByUser(tasks, component, userId) {
+  return tasks.filter(task => {
+    switch (component) {
+      case 'fms':
+      case 'pc':
+        return task.doer === userId;
+      
+      case 'delegation':
+        return (task.doer_name || task.doer) === userId;
+      
+      case 'ht':
+        return task.issueDelegatedTo === userId || task.name === userId;
+      
+      case 'hs':
+        return task.name === userId || task.assignedTo === userId;
+      
+      default:
+        return true; // Default: show all if unknown component
+    }
+  });
+}
 
   // Find new tasks by comparing IDs or unique identifiers
   findNewTasks(oldData, newData) {
