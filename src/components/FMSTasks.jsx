@@ -98,11 +98,49 @@ const FMSTasks = ({ currentUser }) => {
   }, [currentUser.name]);
 
   // Use cached data hook
-  const { data: tasks, loading, error, refresh, lastRefresh } = useCachedData(
+  const { data: tasks, loading, error, refresh:originalRefresh, lastRefresh } = useCachedData(
     'fms', 
     currentUser, 
     fetchFMSData
   );
+
+
+// Add local loading state for manual refresh
+const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+
+// Enhanced refresh function that ensures fresh data from server  
+const refresh = useCallback(async () => {
+  console.log(`🔄 Force refreshing FMS data for ${currentUser.name} - fetching fresh from server...`);
+  
+  setIsManualRefreshing(true);
+  
+  try {
+    // Import dataManager to clear cache first
+    const { default: dataManager } = await import('../utils/DataManager');
+    
+    // Clear the specific cache entry to force fresh fetch
+    const cacheKey = `fms_${currentUser.name}`;
+    dataManager.cache.delete(cacheKey);
+    console.log(`🗑️ Cleared cache for ${cacheKey}`);
+    
+    // Directly call the fetch function to get fresh data from server
+    const freshData = await fetchFMSData();
+    
+    // Update cache with fresh data
+    dataManager.setData('fms', currentUser.name, freshData);
+    
+    console.log(`✅ Successfully refreshed FMS data: ${freshData.length} tasks`);
+    return freshData;
+  } catch (error) {
+    console.error('❌ Error during manual refresh:', error);
+    throw error;
+  } finally {
+    setIsManualRefreshing(false);
+  }
+}, [fetchFMSData, currentUser.name]);
+
+// Combined loading state
+const isRefreshing = loading || isManualRefreshing;
 
   const cleanHeaderName = (header) => {
     return header
@@ -242,34 +280,22 @@ const FMSTasks = ({ currentUser }) => {
     }));
   };
 
-  React.useEffect(() => {
-    if (showModal) {
-      document.body.classList.add('no-scroll');
-    } else {
-      document.body.classList.remove('no-scroll');
-    }
-    return () => {
-      document.body.classList.remove('no-scroll');
-    };
-  }, [showModal]);
-
   const TaskModal = ({ task, onClose }) => {
-    const taskInfo = parseTaskInfo(getTaskInfo(task));
-
-    return (
+  const taskInfo = parseTaskInfo(getTaskInfo(task));
+  
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      {/* Backdrop - separate from scrolling container */}
       <div 
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black bg-opacity-50" 
         onClick={onClose}
-      >
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50"
-        ></div>
-
-        <div
-          className="relative bg-white rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-xl overflow-y-auto"
-          onClick={(e) => e.stopPropagation()} // Prevent closing modal when clicking inside
-        >
-          {/* Header */}
+      ></div>
+      
+      {/* Modal container - centers the modal */}
+      <div className="flex items-center justify-center min-h-screen p-4">
+        {/* Modal content - scrollable */}
+        <div className="relative bg-white rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-xl">
+          {/* Header - fixed height */}
           <div className="bg-white p-6 border-b border-gray-200 rounded-t-xl sticky top-0 z-10">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-semibold text-gray-900">FMS Task Details</h3>
@@ -282,8 +308,8 @@ const FMSTasks = ({ currentUser }) => {
             </div>
           </div>
           
-          {/* Content */}
-          <div className="p-6">
+          {/* Content - scrollable area */}
+          <div className="overflow-y-auto flex-1 p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Left column */}
               <div>
@@ -385,8 +411,9 @@ const FMSTasks = ({ currentUser }) => {
           </div>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   if (loading) {
     return (
@@ -433,13 +460,20 @@ const FMSTasks = ({ currentUser }) => {
           </p>
         </div>
         <button 
-          onClick={refresh}
-          className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2"
-          title="Refresh"
-        >
-          <RefreshCw className="w-5 h-5" />
-          <span className="text-sm">Refresh</span>
-        </button>
+  onClick={refresh}
+  disabled={isRefreshing}
+  className={`p-2 text-white rounded-lg transition-colors flex items-center space-x-2 ${
+    isRefreshing 
+      ? 'bg-gray-400 cursor-not-allowed' 
+      : 'bg-green-600 hover:bg-green-700'
+  }`}
+  title={isRefreshing ? "Refreshing..." : "Refresh"}
+>
+  <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+  <span className="text-sm">
+    {isRefreshing ? 'Refreshing...' : 'Refresh'}
+  </span>
+</button>
       </div>
 
       {/* Stats Cards */}
@@ -572,7 +606,6 @@ const FMSTasks = ({ currentUser }) => {
                         onClick={() => {
                           setSelectedTask(task);
                           setShowModal(true);
-                          document.body.classList.add('no-scroll');
                         }}
                       >
                         <div className="flex items-start justify-between">
@@ -652,7 +685,6 @@ const FMSTasks = ({ currentUser }) => {
           onClose={() => {
             setShowModal(false);
             setSelectedTask(null);
-            document.body.classList.remove('no-scroll');
           }} 
         />
       )}
