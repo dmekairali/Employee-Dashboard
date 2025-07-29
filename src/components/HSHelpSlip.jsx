@@ -31,95 +31,118 @@ const HSHelpSlip = ({ currentUser }) => {
 
   // Fetch function for HS data
   const fetchHSData = useCallback(async () => {
-    try {
-      const spreadsheetId = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_ID_HS;
-      const sheetName = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_NAME_HS;
-      
-      const apiUrl = '/api/sheets';
-      const params = new URLSearchParams({
-        sheetId: spreadsheetId,
-        sheetName: sheetName,
-        range: 'A10:AZ'
-      });
-      
-      const response = await fetch(`${apiUrl}?${params}`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+  try {
+    const spreadsheetId = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_ID_HS;
+    const sheetName = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_NAME_HS;
+    
+    const apiUrl = '/api/sheets';
+    const params = new URLSearchParams({
+      sheetId: spreadsheetId,
+      sheetName: sheetName,
+      range: 'A10:AZ'
+    });
+    
+    const response = await fetch(`${apiUrl}?${params}`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
-      const data = await response.json();
-      const rows = data.values || [];
+    const data = await response.json();
+    const rows = data.values || [];
 
-      if (rows.length === 0) {
-        return [];
-      }
+    if (rows.length === 0) {
+      return [];
+    }
 
-      const headers = rows[0];
-      
-      const hsTasks = rows.slice(1)
-        .filter(row => row && row.length > 0)
-        .map((row, index) => {
-          const task = {};
-          
-          headers.forEach((header, colIndex) => {
-            if (header && row[colIndex] !== undefined) {
-              const key = cleanHeaderName(header);
-              task[key] = row[colIndex];
-            }
-          });
-
-          // Direct column mapping
-          task.helpSlipId = row[0] || '';           // Column 1
-          task.timestamp = row[1] || '';            // Column 2  
-          task.name = row[2] || '';                 // Column 3
-          task.emailId = row[3] || '';              // Column 4
-          task.department = row[4] || '';           // Column 5
-          task.challengeIssue = row[5] || '';       // Column 6
-          task.challengeLevel = row[6] || '';       // Column 7
-          task.solution1 = row[7] || '';            // Column 8
-          task.solution2 = row[8] || '';            // Column 9
-          task.solution3 = row[9] || '';            // Column 10
-          task.attachment = row[10] || '';          // Column 11
-          task.problemSolvingLink1 = row[11] || ''; // Column 12
-          task.problemSolvingLink = row[12] || '';  // Column 13
-          task.replyLink = row[13] || '';           // Column 14
-          task.newLink = row[14] || '';             // Column 15
-          task.replyPlanned = row[18] || '';        // Column 19
-          task.replyActual = row[19] || '';         // Column 20
-          task.replyTimeDelay = row[20] || '';      // Column 21
-          
-          // Director Reply Section
-          task.helpSlipId2 = row[18] || '';         // Column 19
-          task.raisedBy = row[19] || '';            // Column 20
-          task.assignedTo = row[20] || '';          // Column 21
-          task.recommendation = row[24] || '';      // Column 22
-          task.directorAttachment = row[25] || '';  // Column 23
-          task.directorTimestamp = row[26] || '';   // Column 24
-          task.acknowledgePlanned = row[27] || '';  // Column 25
-          task.acknowledgeActual = row[28] || '';   // Column 26
-          task.acknowledgeTimeDelay = row[29] || '';// Column 27
-          task.resolveLink = row[30] || '';         // Column 28
-          
-          // Final Section
-          task.helpSlipId3 = row[28] || '';         // Column 29
-          task.doerRaisedBy = row[29] || '';        // Column 30
-          task.problemResolved = row[33] || '';     // Column 31
-          task.remarks = row[34] || '';             // Column 32
-          task.finalTimestamp = row[35] || '';      // Column 33
-
-          task.id = index + 1;
-          task.rowNumber = index + 11;
-          
-          return task;
+    const headers = rows[0];
+    
+    const hsTasks = rows.slice(1)
+      .filter(row => row && row.length > 0)
+      .map((row, index) => {
+        const task = {};
+        
+        headers.forEach((header, colIndex) => {
+          if (header && row[colIndex] !== undefined) {
+            const key = cleanHeaderName(header);
+            task[key] = row[colIndex];
+          }
         });
 
-      return hsTasks;
-    } catch (error) {
-      console.error('Error fetching HS data:', error);
-      throw error;
-    }
-  }, []);
+        // Direct column mapping (keep exactly as existing)
+        task.helpSlipId = row[0] || '';           // Column 1
+        task.timestamp = row[1] || '';            // Column 2  
+        task.name = row[2] || '';                 // Column 3
+        task.emailId = row[3] || '';              // Column 4
+        task.department = row[4] || '';           // Column 5
+        task.challengeIssue = row[5] || '';       // Column 6
+        task.challengeLevel = row[6] || '';       // Column 7
+        task.solution1 = row[7] || '';            // Column 8
+        task.solution2 = row[8] || '';            // Column 9
+        task.solution3 = row[9] || '';            // Column 10
+        task.attachment = row[10] || '';          // Column 11
+        task.problemSolvingLink1 = row[11] || ''; // Column 12
+        task.problemSolvingLink = row[12] || '';  // Column 13
+        task.replyLink = row[13] || '';           // Column 14
+        task.newLink = row[14] || '';             // Column 15
+        task.replyPlanned = row[18] || '';        // Column 19
+        task.replyActual = row[19] || '';         // Column 20
+        task.replyTimeDelay = row[20] || '';      // Column 21
+        
+        // Director Reply Section (keep exactly as existing)
+        task.helpSlipId2 = row[18] || '';         // Column 19
+        task.raisedBy = row[19] || '';            // Column 20
+        task.assignedTo = row[20] || '';          // Column 21
+        task.recommendation = row[24] || '';      // Column 25
+        task.directorAttachment = row[25] || '';  // Column 26
+        task.directorTimestamp = row[26] || '';   // Column 27
+        task.acknowledgePlanned = row[27] || '';  // Column 28
+        task.acknowledgeActual = row[28] || '';   // Column 29
+        task.acknowledgeTimeDelay = row[29] || '';// Column 30
+        task.resolveLink = row[30] || '';         // Column 31
+        
+        // Final Section (keep exactly as existing)
+        task.helpSlipId3 = row[28] || '';         // Column 29
+        task.doerRaisedBy = row[29] || '';        // Column 30
+        task.problemResolved = row[33] || '';     // Column 34
+        task.remarks = row[34] || '';             // Column 35
+        task.finalTimestamp = row[35] || '';      // Column 36
+
+        task.id = index + 1;
+        task.rowNumber = index + 11;
+        
+        return task;
+      })
+      // ✅ ONLY NEW ADDITION: Filter by user at fetch level (before caching)
+      .filter(task => {
+        // Check if user is director (same logic as existing component)
+        const isDirector = 
+          (currentUser?.role?.toLowerCase() === 'director') || 
+          (currentUser?.department?.toLowerCase() === 'director');
+        
+        if (isDirector) {
+          // For directors: NO FILTERING - load all data
+          return true;
+        } else {
+          // For non-directors: load only tasks raised by the user
+          return task.name === currentUser.name;
+        }
+      })
+      // ✅ Additional filter: Only include tasks with valid helpSlipId
+      .filter(task => {
+        return task.helpSlipId && task.helpSlipId.trim() !== '';
+      });
+
+    // ✅ Add logging to track filtering effectiveness
+    console.log(`✅ HS Data filtered for ${currentUser.name}: ${hsTasks.length} relevant tasks out of ${rows.length - 1} total rows`);
+
+    return hsTasks;
+  } catch (error) {
+    console.error('Error fetching HS data:', error);
+    throw error;
+  }
+}, [currentUser.name, currentUser.role]); // ✅ Add only relevant user dependencies
+
 
   const { data: allTasks, loading, error, refresh:originalRefresh, lastRefresh } = useCachedData(
     'hs', 
@@ -171,7 +194,7 @@ const isRefreshing = loading || isManualRefreshing;
       .replace(/^_|_$/g, '');
   };
 
- const isDirector = 
+  const isDirector = 
   (currentUser?.role?.toLowerCase() === 'director') || 
   (currentUser?.department?.toLowerCase() === 'director');
 
