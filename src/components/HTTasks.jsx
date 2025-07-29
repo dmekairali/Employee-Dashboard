@@ -187,15 +187,17 @@ const isRefreshing = loading || isManualRefreshing;
   };
 
   // Filter tasks based on main tab
-  const getTasksForMainTab = () => {
-    if (selectedMainTab === 'raisedOnYou') {
-      // HT Raised On You = column 8 (Issue Delegated to) is equal to user logged in
-      return allTasks.filter(task => task.issueDelegatedTo === currentUser.name);
-    } else {
-      // HT Raised By You = column 3 (Name) is equal to user logged in
-      return allTasks.filter(task => task.name === currentUser.name);
-    }
-  };
+ const getTasksForMainTab = () => {
+  let tasks;
+  if (selectedMainTab === 'raisedOnYou') {
+    tasks = allTasks.filter(task => task.issueDelegatedTo === currentUser.name);
+  } else {
+    tasks = allTasks.filter(task => task.name === currentUser.name);
+  }
+  
+  // Sort by timestamp descending
+  return tasks.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+};
 
   // Get sub tabs based on main tab
   const getSubTabs = () => {
