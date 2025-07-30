@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { 
   FileText, 
   Calendar, 
@@ -98,11 +98,22 @@ const FMSTasks = ({ currentUser }) => {
   }, [currentUser.name]);
 
   // Use cached data hook
-  const { data: tasks, loading, error, refresh:originalRefresh, lastRefresh } = useCachedData(
+  const { data: allFMSTasks, loading, error, refresh:originalRefresh, lastRefresh } = useCachedData(
     'fms', 
     currentUser, 
     fetchFMSData
   );
+
+  // Filter out CheckList Task and HelpTicket items
+  const tasks = useMemo(() => {
+    if (!Array.isArray(allFMSTasks)) return [];
+
+    return allFMSTasks.filter(task => {
+      const fmsType = getFMSType(task);
+      return !fmsType.toLowerCase().includes('checklist task') &&
+            !fmsType.toLowerCase().includes('helpticket');
+    });
+  }, [allFMSTasks]);
 
 
 // Add local loading state for manual refresh
