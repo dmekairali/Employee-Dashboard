@@ -47,7 +47,8 @@ import {
   Eye,
   BookOpen,
   PieChart,
-  BarChart
+  BarChart,
+  CheckSquare
 } from 'lucide-react';
 import dataManager from '../utils/DataManager';
 import Weather from './Weather';
@@ -312,16 +313,19 @@ useEffect(() => {
     
     if (currentUser.permissions.canViewFMS) {
       
-      const userFMSData = fmsData.filter(task => {
+   const userFMSData = fmsData.filter(task => {
   const taskDoer = task.doer || task.assignedTo || '';
-  return taskDoer === currentUser.name;
+  const fmsType = task.fms || '';
+  const isChecklistOrHelpTicket = fmsType.toLowerCase().includes('checklist task') || 
+                                  fmsType.toLowerCase().includes('helpticket');
+  return taskDoer === currentUser.name && !isChecklistOrHelpTicket;
 });
 const totalFMSTasks = userFMSData.length;
 
-      const delayedTasks = fmsData.filter(task => task.delay && task.delay.trim() !== '').length;
-      
+const delayedTasks = userFMSData.filter(task => task.delay && task.delay.trim() !== '').length;
+
       baseStats.push({
-        title: 'FMS + Checklist Tasks', 
+        title: 'FMS', 
         value: totalFMSTasks.toString(), 
         change: delayedTasks > 0 ? `${delayedTasks} delayed` : 'On track', 
         trend: delayedTasks > 0 ? 'down' : 'up', 
@@ -396,27 +400,34 @@ const totalFMSTasks = userFMSData.length;
   });
 }
     
-    // Performance calculation
-    const allTasks = [...delegationData, ...fmsData, ...htData, ...pcData, ...hsData];
-    const completedTasks = allTasks.filter(task => {
-      const status = task.delegation_status || task.status || '';
-      return status.toLowerCase().includes('completed') || status.toLowerCase().includes('done');
-    }).length;
+    // Checklist Tasks calculation
+if (currentUser.permissions.canViewFMS) {
+  const userChecklistTasks = fmsData.filter(task => {
+    const taskDoer = task.doer || task.assignedTo || '';
+    const fmsType = task.fms || '';
+    const isChecklistTask = fmsType.toLowerCase().includes('checklist task');
+    const isUserDoer = taskDoer === currentUser.name;
     
-    const performanceRate = allTasks.length > 0 ? Math.round((completedTasks / allTasks.length) * 100) : 0;
-    
-    baseStats.push({
-      title: 'Performance', 
-      value: `${performanceRate}%`, 
-      change: performanceRate > 80 ? 'Excellent' : performanceRate > 60 ? 'Good' : 'Needs attention', 
-      trend: performanceRate > 70 ? 'up' : 'down', 
-      icon: TrendingUp, 
-      color: 'text-indigo-600 bg-indigo-50',
-      description: 'Task completion rate',
-      onClick: () => onTabChange('analytics'),
-      total: allTasks.length
-    });
-    
+    return isChecklistTask && isUserDoer;
+  });
+  
+  const overdueChecklist = userChecklistTasks.filter(task => {
+    const delay = parseFloat(task.delay || 0);
+    return delay > 0;
+  }).length;
+  
+  baseStats.push({
+    title: 'Checklist Tasks', 
+    value: userChecklistTasks.length.toString(), 
+    change: overdueChecklist > 0 ? `${overdueChecklist} overdue` : 'All on track', 
+    trend: overdueChecklist > 0 ? 'down' : 'up', 
+    icon: CheckSquare, 
+    color: 'text-indigo-600 bg-indigo-50',
+    description: 'Checklist tasks assigned to you',
+    onClick: () => onTabChange('checklist'),
+    total: userChecklistTasks.length
+  });
+}
     return baseStats;
   }, [delegationData, fmsData, htData, pcData, hsData, currentUser.permissions, onTabChange, currentUser.name, loading]);
 
@@ -476,28 +487,34 @@ const totalFMSTasks = userFMSData.length;
       tasks.push(...urgentDelegation);
     }
     
-    // Add overdue FMS tasks - only those assigned to current user
-    if (currentUser.permissions.canViewFMS) {
-      const overdueFMS = fmsData
-        .filter(task => {
-          // Filter by doer (person task is assigned to)
-          const isAssignedToUser = task.doer === currentUser.name;
-          const isOverdue = task.delay && task.delay.trim() !== '';
-          
-          return isAssignedToUser && isOverdue;
-        })
-        .slice(0, 2)
-        .map(task => ({
-          id: task.id,
-          title: task.what_to_do || 'FMS Task',
-          type: 'FMS',
-          priority: 'overdue',
-          dueDate: task.planned || 'Not set',
-          module: 'fms',
-          assignedTo: task.doer
-        }));
-      tasks.push(...overdueFMS);
-    }
+    
+    // Add overdue FMS tasks - only those assigned to current user (exclude CheckList Task and HelpTicket)
+if (currentUser.permissions.canViewFMS) {
+  const overdueFMS = fmsData
+    .filter(task => {
+      // Filter by doer (person task is assigned to)
+      const isAssignedToUser = task.doer === currentUser.name;
+      const isOverdue = task.delay && task.delay.trim() !== '';
+      
+      // Exclude CheckList Task and HelpTicket items
+      const fmsType = task.fms || '';
+      const isChecklistOrHelpTicket = fmsType.toLowerCase().includes('checklist task') || 
+                                      fmsType.toLowerCase().includes('helpticket');
+      
+      return isAssignedToUser && isOverdue && !isChecklistOrHelpTicket;
+    })
+    .slice(0, 2)
+    .map(task => ({
+      id: task.id,
+      title: task.what_to_do || 'FMS Task',
+      type: 'FMS',
+      priority: 'overdue',
+      dueDate: task.planned || 'Not set',
+      module: 'fms',
+      assignedTo: task.doer
+    }));
+  tasks.push(...overdueFMS);
+}
 
     // Add overdue PC tasks - only those where current user is PC
     if (currentUser.permissions.canViewPC) {
@@ -1507,6 +1524,24 @@ const formatActivityTime = (dateStr) => {
               <span>Admin Panel</span>
             </button>
           )}
+           {/* Create Help Ticket */}
+<button 
+  onClick={() => window.open('https://docs.google.com/forms/d/e/1FAIpQLScAEYqkU-vIFjPJnOAq9STI5d1JNBTtPnPksc0nFg5eSpjaHw/viewform', '_blank')}
+  className="flex items-center space-x-3 p-4 bg-white/20 hover:bg-white/30 rounded-lg transition-all hover:scale-105"
+>
+  <Mail className="w-5 h-5" />
+  <span>Create Help Ticket</span>
+</button>
+
+{/* Create Help Slip */}
+<button 
+  onClick={() => window.open('https://docs.google.com/forms/d/e/1FAIpQLSdin7lbbC72aF3srwICTyLEfaIQFK4NfER5x_Hxa_cXKKmuJg/viewform', '_blank')}
+  className="flex items-center space-x-3 p-4 bg-white/20 hover:bg-white/30 rounded-lg transition-all hover:scale-105"
+>
+  <UserPlus className="w-5 h-5" />
+  <span>Create Help Slip</span>
+</button>
+          
         </div>
       </div>
     </div>
