@@ -419,22 +419,119 @@ if (currentUser.permissions.canViewFMS) {
   };
 
   // Get page title based on selected tab - Updated to include Checklist
-  const getPageTitle = () => {
-    switch (selectedTab) {
-      case 'notifications': return 'Notifications & Announcements';
-      case 'overview': return 'Dashboard Overview';
-      case 'ht-tasks': return 'Help Tickets';
-      case 'delegation': return 'Delegation Tasks';
-      case 'fms': return 'FMS Tasks';
-      case 'pc': return 'PC Dashboard';
-      case 'checklist': return 'Checklist Tasks'; // Added checklist title
-      case 'hs': return 'Help Slips';
-      case 'analytics': return 'Analytics';
-      case 'management': return 'Management Command Center';
-      case 'admin': return 'Admin Panel';
-      default: return 'Dashboard';
+  const getRoleColor = (role) => {
+    const colors = {
+        // Operation related roles
+        'OPERATION MANAGER': 'from-blue-500 to-blue-600',
+        'ASST. OPERATION MANAGER': 'from-blue-500 to-blue-600',
+        'Operation Executive': 'from-blue-500 to-blue-600',
+        'AM Production': 'from-blue-500 to-blue-600',
+        'Production supervisor': 'from-blue-500 to-blue-600',
+        'PRODUCTION MANAGER': 'from-blue-500 to-blue-600',
+        
+        // PC (assuming this is for Purchase related)
+        'PC': 'from-green-500 to-green-600',
+        'PURCHASE INCHARGE': 'from-green-500 to-green-600',
+        
+        // Sales related
+        'SALES EXECUTIVE': 'from-purple-500 to-purple-600',
+        'SALES MANAGER': 'from-purple-500 to-purple-600',
+        'SALES CORDINATOR': 'from-purple-500 to-purple-600',
+        'Business Development Manager': 'from-purple-500 to-purple-600',
+        'MARKETING MANAGER': 'from-purple-500 to-purple-600',
+        
+        // Medical/Healthcare roles
+        'DOCTOR': 'from-red-500 to-red-600',
+        'Staff Nurse': 'from-red-500 to-red-600',
+        'Ayurvedic Physician': 'from-red-500 to-red-600',
+        'PHARMACIST': 'from-red-500 to-red-600',
+        'THERAPIST': 'from-red-500 to-red-600',
+        'Yoga Instructor': 'from-red-500 to-red-600',
+        'Medical Secretary & Executive Assistant': 'from-red-500 to-red-600',
+        
+        // HR related
+        'HR EXECUTIVE': 'from-yellow-500 to-yellow-600',
+        'Executive- HR and Admin': 'from-yellow-500 to-yellow-600',
+        
+        // Account related
+        'ACCOUNT EXECUTIVE': 'from-indigo-500 to-indigo-600',
+        'ACCOUNT MANAGER': 'from-indigo-500 to-indigo-600',
+        
+        // Director/VP
+        'Director': 'from-red-600 to-purple-600',
+        'VP': 'from-red-600 to-purple-600',
+        'GM': 'from-red-600 to-purple-600',
+        
+        // Manager roles
+        'Manager': 'from-purple-600 to-indigo-600',
+        'Assistant Manager-F & B': 'from-purple-600 to-indigo-600',
+        'Assistant Manager-House Keeping': 'from-purple-600 to-indigo-600',
+        'ASM': 'from-purple-600 to-indigo-600',
+        
+        // Admin
+        'Admin': 'from-gray-600 to-gray-700',
+        'EA': 'from-gray-600 to-gray-700',
+        
+        // Front Office/Guest Services
+        'FRONT OFFICE': 'from-teal-500 to-teal-600',
+        'Front Office Executive': 'from-teal-500 to-teal-600',
+        'Front Office Assistant': 'from-teal-500 to-teal-600',
+        'Guest Service Associate': 'from-teal-500 to-teal-600',
+        'GSA': 'from-teal-500 to-teal-600',
+        
+        // Kitchen/F&B
+        'CHEF': 'from-orange-500 to-orange-600',
+        'Commi - ||': 'from-orange-500 to-orange-600',
+        'Commi 2': 'from-orange-500 to-orange-600',
+        'Kitchen Assistant': 'from-orange-500 to-orange-600',
+        'WAITERS': 'from-orange-500 to-orange-600',
+        
+        // Technical roles
+        'Wordpress Developer': 'from-cyan-500 to-cyan-600',
+        'SEO EXECUTIVE': 'from-cyan-500 to-cyan-600',
+        'SEO Executive': 'from-cyan-500 to-cyan-600',
+        'Designer': 'from-cyan-500 to-cyan-600',
+        'Content and Social Media Manager': 'from-cyan-500 to-cyan-600',
+        
+        // Maintenance/Technical
+        'Maintanance Incharge': 'from-amber-500 to-amber-600',
+        'Maintenance supervisor': 'from-amber-500 to-amber-600',
+        'General Tradesman': 'from-amber-500 to-amber-600',
+        'Painter': 'from-amber-500 to-amber-600',
+        
+        // Other roles
+        'DRIVER': 'from-lime-500 to-lime-600',
+        'SECURITY GAURAD': 'from-lime-500 to-lime-600',
+        'Peon': 'from-lime-500 to-lime-600',
+        'Helper': 'from-lime-500 to-lime-600',
+        'LABOUR': 'from-lime-500 to-lime-600',
+        'Room Attender': 'from-lime-500 to-lime-600',
+        'GARDEN INCHARGE': 'from-lime-500 to-lime-600',
+        'Farm In-Charge': 'from-lime-500 to-lime-600',
+        'DATA ENTRY OPERATOR': 'from-lime-500 to-lime-600',
+        'CRR': 'from-lime-500 to-lime-600',
+        'GRM': 'from-lime-500 to-lime-600',
+        'DME': 'from-lime-500 to-lime-600',
+        'Dispatch supervisor': 'from-lime-500 to-lime-600',
+        'FG supervisor': 'from-lime-500 to-lime-600',
+        'Gel supervisor': 'from-lime-500 to-lime-600',
+        'Supervisor': 'from-lime-500 to-lime-600',
+        'STORE INCHARGE': 'from-lime-500 to-lime-600',
+        'WAREHOUSE INCHARGE': 'from-lime-500 to-lime-600',
+        'QC Assistant': 'from-lime-500 to-lime-600',
+        'VENDOR': 'from-lime-500 to-lime-600',
+        'HOUSEKEEPING': 'from-lime-500 to-lime-600'
+    };
+    
+    // Find the matching color by checking if the role includes any of the keys
+    for (const [key, value] of Object.entries(colors)) {
+        if (role.toLowerCase().includes(key.toLowerCase())) {
+            return value;
+        }
     }
-  };
+    
+    return 'from-gray-500 to-gray-600';
+};
 
   return (
     <div className="min-h-screen bg-background">
