@@ -107,68 +107,121 @@ const Overview = ({ currentUser, onTabChange }) => {
     if (!currentUser?.name) return;
 
     const startBackgroundLoading = async () => {
-      addLoadingMessage('system', 'Starting background data loading...');
-      
-      // Get list of permitted modules
-      const permittedModules = [];
-      if (currentUser.permissions.canViewDelegation) permittedModules.push('delegation');
-      if (currentUser.permissions.canViewFMS) permittedModules.push('fms');
-      if (currentUser.permissions.canViewHT) permittedModules.push('ht');
-      if (currentUser.permissions.canViewPC) permittedModules.push('pc');
-      if (currentUser.permissions.canViewHS) permittedModules.push('hs');
+  addLoadingMessage('system', 'Starting background data loading...');
+  
+  // Get list of permitted modules
+  const permittedModules = [];
+  if (currentUser.permissions.canViewDelegation) permittedModules.push('delegation');
+  if (currentUser.permissions.canViewFMS) permittedModules.push('fms');
+  if (currentUser.permissions.canViewHT) permittedModules.push('ht');
+  if (currentUser.permissions.canViewPC) permittedModules.push('pc');
+  if (currentUser.permissions.canViewHS) permittedModules.push('hs');
 
-      // Load modules one by one to avoid overwhelming the system
-      for (const module of permittedModules) {
-        addLoadingMessage(module, `Loading ${module.toUpperCase()} data...`);
-        
-        setBackgroundLoading(prev => ({ ...prev, [module]: true }));
-        
-        // Mount the component to trigger data loading
-        setMountComponents(prev => ({ ...prev, [module]: true }));
-        
-        // Wait a bit for component to load data
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Check if data was loaded
-        const hasData = dataManager.hasData(module, currentUser.name);
-        if (hasData) {
-          addLoadingMessage(module, `✓ ${module.toUpperCase()} data loaded successfully`);
-        } else {
-          addLoadingMessage(module, `⚠ ${module.toUpperCase()} data loading in progress...`);
-        }
-        
+  // If no modules to load, show overview immediately
+  if (permittedModules.length === 0) {
+    addLoadingMessage('system', '✓ No modules to load - user has no permissions');
+    setLoading(false);
+    return;
+  }
+
+  // Track completion status for each module
+  const moduleCompletionStatus = {};
+  permittedModules.forEach(module => {
+    moduleCompletionStatus[module] = false;
+  });
+
+  // Function to check if all modules are completed
+  const checkAllModulesCompleted = () => {
+    const allCompleted = permittedModules.every(module => moduleCompletionStatus[module]);
+    if (allCompleted) {
+      addLoadingMessage('system', '✓ All modules data loaded - updating overview...');
+      // Final data load from cache
+      loadCachedData();
+      // Small delay to ensure UI updates, then show overview
+      setTimeout(() => {
+        setLoading(false);
+        addLoadingMessage('system', '✓ Overview ready!');
+      }, 500);
+    }
+    return allCompleted;
+  };
+
+  // Load modules with proper completion tracking
+  for (const module of permittedModules) {
+    addLoadingMessage(module, `Loading ${module.toUpperCase()} data...`);
+    
+    setBackgroundLoading(prev => ({ ...prev, [module]: true }));
+    
+    // Mount the component to trigger data loading
+    setMountComponents(prev => ({ ...prev, [module]: true }));
+    
+    // Wait for component to actually load and cache data
+    let attempts = 0;
+    const maxAttempts = 15; // 15 attempts * 1 second = 15 seconds max wait
+    
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      attempts++;
+      
+      // Check if data was actually loaded and cached
+      const hasData = dataManager.hasData(module, currentUser.name);
+      const isFresh = dataManager.isDataFresh(module, currentUser.name);
+      
+      if (hasData && isFresh) {
+        addLoadingMessage(module, `✓ ${module.toUpperCase()} data loaded successfully`);
+        moduleCompletionStatus[module] = true;
         setBackgroundLoading(prev => ({ ...prev, [module]: false }));
         
         // Unmount component after data is loaded to save memory
         setTimeout(() => {
           setMountComponents(prev => ({ ...prev, [module]: false }));
-        }, 3000);
+        }, 2000);
+        break;
+      } else if (attempts === maxAttempts) {
+        // Timeout - mark as completed anyway to avoid infinite loading
+        addLoadingMessage(module, `⚠ ${module.toUpperCase()} data loading timeout - continuing anyway`);
+        moduleCompletionStatus[module] = true;
+        setBackgroundLoading(prev => ({ ...prev, [module]: false }));
+        setTimeout(() => {
+          setMountComponents(prev => ({ ...prev, [module]: false }));
+        }, 2000);
+      } else {
+        addLoadingMessage(module, `⏳ ${module.toUpperCase()} still loading... (${attempts}/${maxAttempts})`);
       }
-      
-      addLoadingMessage('system', '✓ Background loading completed!');
-      
-      // Final data load and stop main loading
-      setTimeout(() => {
-        loadCachedData();
-        setLoading(false);
-      }, 1000);
-    };
+    }
+    
+    // Check if all modules are now completed after each module finishes
+    if (checkAllModulesCompleted()) {
+      break; // Exit early if all modules are done
+    }
+  }
+  
+  // Final fallback check in case something went wrong
+  if (!checkAllModulesCompleted()) {
+    addLoadingMessage('system', '⚠ Some modules may still be loading, but showing overview now');
+    loadCachedData();
+    setTimeout(() => {
+      setLoading(false);
+    }, 1000);
+  }
+};
 
     startBackgroundLoading();
   }, [currentUser?.name, currentUser?.permissions, addLoadingMessage]);
 
   // Load cached data on mount and periodically
   const loadCachedData = useCallback(() => {
-    if (!currentUser?.name) return;
+  if (!currentUser?.name) return;
 
-    const userId = currentUser.name;
-    
-    // Get data from cache directly
-    const delegation = dataManager.getDataWithFallback('delegation', userId);
-    const fms = dataManager.getDataWithFallback('fms', userId);
-    const ht = dataManager.getDataWithFallback('ht', userId);
-    const pc = dataManager.getDataWithFallback('pc', userId);
-    const hs = dataManager.getDataWithFallback('hs', userId);
+  const userId = currentUser.name;
+  
+  // Get data from cache directly with better error handling
+  try {
+    const delegation = dataManager.getDataWithFallback('delegation', userId) || [];
+    const fms = dataManager.getDataWithFallback('fms', userId) || [];
+    const ht = dataManager.getDataWithFallback('ht', userId) || [];
+    const pc = dataManager.getDataWithFallback('pc', userId) || [];
+    const hs = dataManager.getDataWithFallback('hs', userId) || [];
 
     setDelegationData(delegation);
     setFmsData(fms);
@@ -181,9 +234,20 @@ const Overview = ({ currentUser, onTabChange }) => {
       fms: fms.length,
       ht: ht.length,
       pc: pc.length,
-      hs: hs.length
+      hs: hs.length,
+      timestamp: new Date().toISOString()
     });
-  }, [currentUser?.name]);
+  } catch (error) {
+    console.error('Error loading cached data:', error);
+    // Set empty arrays as fallback
+    setDelegationData([]);
+    setFmsData([]);
+    setHtData([]);
+    setPcData([]);
+    setHsData([]);
+  }
+}, [currentUser?.name]);
+
 
   // ✅ REPLACE with cache update listener:
 useEffect(() => {
