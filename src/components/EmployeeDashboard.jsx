@@ -97,13 +97,17 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
           ).length;
         }
 
-        // Count pending FMS tasks
-        if (currentUser.permissions.canViewFMS) {
-          counts.fms = fmsData.filter(task => {
-            const delay = parseFloat(task.delay || 0);
-            return delay > 0; // Tasks with positive delay are considered pending/overdue
-          }).length;
-        }
+       
+     // Count pending FMS tasks (exclude CheckList Task and HelpTicket)
+if (currentUser.permissions.canViewFMS) {
+  counts.fms = fmsData.filter(task => {
+    const fmsType = task.fms || '';
+    const isChecklistOrHelpTicket = fmsType.toLowerCase().includes('checklist task') || 
+                                    fmsType.toLowerCase().includes('helpticket');
+    const delay = parseFloat(task.delay || 0);
+    return !isChecklistOrHelpTicket && delay > 0; // Tasks with positive delay are considered pending/overdue
+  }).length;
+}
 
         // Count pending PC tasks
         if (currentUser.permissions.canViewPC) {
