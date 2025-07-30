@@ -1,4 +1,4 @@
-// Updated EmployeeDashboard.jsx with Notification Counter
+// Updated EmployeeDashboard.jsx with Notification Counter and Checklist Tab
 import React, { useState, useEffect, useMemo, useContext } from 'react';
 import { ThemeContext } from '../context/ThemeContext';
 import { 
@@ -37,7 +37,8 @@ import {
   Sun,
   Moon,
   Briefcase,
-  X
+  X,
+  CheckSquare // Added for Checklist
 } from 'lucide-react';
 import NotificationsAnnouncements from './NotificationsAnnouncements';
 import DelegationTasks from './DelegationTasks';
@@ -47,6 +48,7 @@ import PCTasks from './PCTasks';
 import HSHelpSlip from './HSHelpSlip';
 import AdminNotifications from './AdminNotifications';
 import ManagementDashboard from './ManagementDashboard'; // Import the new component
+import ChecklistTasks from './ChecklistTasks'; // Import Checklist component
 import NewTaskNotification from './NewTaskNotification';
 import Overview from './Overview';
 import dataManager from '../utils/DataManager';
@@ -65,19 +67,20 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
   // Notification counter hook
   const { unreadTodayCount } = useNotificationCounter(currentUser);
   
-  // State for pending counts
+  // State for pending counts - Updated to include checklist
   const [pendingCounts, setPendingCounts] = useState({
     ht: 0,
     delegation: 0,
     fms: 0,
     pc: 0,
-    hs: 0
+    hs: 0,
+    checklist: 0 // Added checklist count
   });
 
-  // Calculate pending counts based on cached data
+  // Calculate pending counts based on cached data - Updated to include checklist
   const calculatePendingCounts = useMemo(() => {
     return () => {
-      const counts = { ht: 0, delegation: 0, fms: 0, pc: 0, hs: 0 };
+      const counts = { ht: 0, delegation: 0, fms: 0, pc: 0, hs: 0, checklist: 0 };
       
       try {
         // Get data from cache
@@ -108,6 +111,22 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
             const delay = parseFloat(task.delay || 0);
             return delay > 0;
           }).length;
+        }
+
+        // Count checklist tasks assigned to current user as Doer
+        if (currentUser.permissions.canViewFMS) { // Use same permission as FMS since it's same data source
+          const checklistTasks = fmsData.filter(task => {
+            // Filter for checklist tasks where current user is the Doer
+            const fmsType = task.fms || '';
+            const isChecklistTask = fmsType.toLowerCase().includes('checklist task');
+            const taskDoer = task.doer || task.assignedTo || '';
+            const isUserDoer = taskDoer === currentUser.name;
+            
+            return isChecklistTask && isUserDoer;
+          });
+          
+          // Count ALL checklist tasks (not just overdue ones)
+          counts.checklist = checklistTasks.length;
         }
 
         // Count pending HT tasks (tasks raised on this user awaiting reply)
@@ -274,7 +293,7 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
     ) || currentUser.permissions.canViewAdmin;
   };
 
-  // Role-based navigation items with counts
+  // Role-based navigation items with counts - Updated to include Checklist
   const getNavigationItems = (permissions) => {
     const allItems = [
       { 
@@ -319,6 +338,14 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
         icon: Clipboard, 
         permission: 'canViewPC',
         count: pendingCounts.pc
+      },
+      // Add Checklist tab here
+      { 
+        id: 'checklist', 
+        label: 'Checklist', 
+        icon: CheckSquare, 
+        permission: 'canViewFMS', // Use same permission as FMS since it's same data source
+        count: pendingCounts.checklist
       },
       { 
         id: 'hs', 
@@ -387,7 +414,7 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
     return colors[role] || 'from-gray-500 to-gray-600';
   };
 
-  // Get page title based on selected tab
+  // Get page title based on selected tab - Updated to include Checklist
   const getPageTitle = () => {
     switch (selectedTab) {
       case 'notifications': return 'Notifications & Announcements';
@@ -396,6 +423,7 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
       case 'delegation': return 'Delegation Tasks';
       case 'fms': return 'FMS Tasks';
       case 'pc': return 'PC Dashboard';
+      case 'checklist': return 'Checklist Tasks'; // Added checklist title
       case 'hs': return 'Help Slips';
       case 'analytics': return 'Analytics';
       case 'management': return 'Management Command Center';
@@ -506,6 +534,9 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
                 {selectedTab === 'management' && (
                   <Gauge className="w-6 h-6 mr-3 text-purple-600" />
                 )}
+                {selectedTab === 'checklist' && (
+                  <CheckSquare className="w-6 h-6 mr-3 text-green-600" />
+                )}
                 {getPageTitle()}
                 {selectedTab === 'management' && (
                   <span className="ml-3 px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full font-semibold">
@@ -518,6 +549,8 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
                   ? <TimeDisplay />
                   : selectedTab === 'management'
                   ? 'Real-time organizational insights and performance analytics'
+                  : selectedTab === 'checklist'
+                  ? `Checklist tasks assigned to ${currentUser.name} as Doer`
                   : `${currentUser.role} • ${currentUser.department}`
                 }
               </p>
@@ -529,7 +562,10 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
                 <input
                   type="text"
                   placeholder={selectedTab === 'management' ? 
-                    "Search organizational data..." : "Search tickets, tasks..."
+                    "Search organizational data..." : 
+                    selectedTab === 'checklist' ?
+                    "Search checklist tasks..." :
+                    "Search tickets, tasks..."
                   }
                   className="pl-10 pr-4 py-2 border border-border-color rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card-background text-foreground w-80"
                 />
@@ -575,6 +611,16 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
 
           {selectedTab === 'pc' && currentUser.permissions.canViewPC && (
             <PCTasks currentUser={currentUser} />
+          )}
+
+          {/* Add Checklist tab content */}
+          {selectedTab === 'checklist' && currentUser.permissions.canViewFMS && (
+            <ChecklistTasks 
+              fmsData={dataManager.getDataWithFallback('fms', currentUser.name)}
+              currentUser={currentUser} 
+              loading={false}
+              error={null}
+            />
           )}
           
           {selectedTab === 'hs' && currentUser.permissions.canViewHS && (
