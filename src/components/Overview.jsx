@@ -248,13 +248,13 @@ const totalFMSTasks = userFMSData.length;
       const delayedTasks = fmsData.filter(task => task.delay && task.delay.trim() !== '').length;
       
       baseStats.push({
-        title: 'FMS Tasks', 
+        title: 'FMS + Checklist Tasks', 
         value: totalFMSTasks.toString(), 
         change: delayedTasks > 0 ? `${delayedTasks} delayed` : 'On track', 
         trend: delayedTasks > 0 ? 'down' : 'up', 
         icon: FileText, 
         color: 'text-green-600 bg-green-50',
-        description: 'Financial Management System tasks',
+        description: 'Flow Management System tasks',
         onClick: () => onTabChange('fms'),
         total: totalFMSTasks
       });
