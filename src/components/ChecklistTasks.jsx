@@ -17,6 +17,38 @@ const ChecklistTasks = ({ fmsData, currentUser, loading, error }) => {
     return task.task_info || task.taskinfo || task.what_to_do || '';
   };
 
+  // Helper function to parse and extract info from task description
+  const parseTaskInfo = (task) => {
+    const taskInfo = getTaskInfo(task);
+    
+    // Extract frequency, task ID, and task date from the task description
+    const freqMatch = taskInfo.match(/Freq:-([^,\s]+)/);
+    const taskIdMatch = taskInfo.match(/Task ID:-(\d+)/);
+    const taskDateMatch = taskInfo.match(/Task Date:-([^$]+)$/);
+    
+    // Clean task description by removing the extracted parts
+    let cleanedTask = taskInfo;
+    if (freqMatch) {
+      cleanedTask = cleanedTask.replace(/\s*Freq:-[^,\s]+,?\s*/g, '');
+    }
+    if (taskIdMatch) {
+      cleanedTask = cleanedTask.replace(/\s*Task ID:-\d+,?\s*/g, '');
+    }
+    if (taskDateMatch) {
+      cleanedTask = cleanedTask.replace(/\s*Task Date:-[^$]+$/g, '');
+    }
+    
+    // Clean up extra spaces and commas
+    cleanedTask = cleanedTask.replace(/\s*,\s*$/, '').replace(/\s+/g, ' ').trim();
+    
+    return {
+      cleanedTask: cleanedTask || 'No description available',
+      frequency: freqMatch ? freqMatch[1] : '',
+      taskId: taskIdMatch ? taskIdMatch[1] : '',
+      taskDate: taskDateMatch ? taskDateMatch[1].trim() : ''
+    };
+  };
+
   const getWhatToDo = (task) => {
     return task.what_to_do || task.whattodo || '';
   };
@@ -37,19 +69,22 @@ const ChecklistTasks = ({ fmsData, currentUser, loading, error }) => {
     return task.link || '';
   };
 
-  // Helper function to get task frequency
+  // Helper function to get task frequency - now extracted from task description
   const getFrequency = (task) => {
-    return task.frequency || task.freq || '';
+    const parsed = parseTaskInfo(task);
+    return parsed.frequency || task.frequency || task.freq || 'N/A';
   };
 
-  // Helper function to get task ID
+  // Helper function to get task ID - now extracted from task description
   const getTaskId = (task) => {
-    return task.task_id || task.taskid || task.id || '';
+    const parsed = parseTaskInfo(task);
+    return parsed.taskId || task.task_id || task.taskid || task.id || 'N/A';
   };
 
-  // Helper function to get task date
+  // Helper function to get task date - now extracted from task description
   const getTaskDate = (task) => {
-    return task.task_date || task.taskdate || getDeadline(task) || '';
+    const parsed = parseTaskInfo(task);
+    return parsed.taskDate || task.task_date || task.taskdate || getDeadline(task) || 'N/A';
   };
 
   // Helper function to get planned date
@@ -294,7 +329,8 @@ const ChecklistTasks = ({ fmsData, currentUser, loading, error }) => {
             </div>
             <div className="divide-y divide-gray-200">
               {groupedTasks.today.map((task, index) => {
-                const taskInfo = getTaskInfo(task);
+                const parsed = parseTaskInfo(task);
+                const taskInfo = parsed.cleanedTask;
                 const frequency = getFrequency(task);
                 const taskId = getTaskId(task);
                 const taskDate = getTaskDate(task);
@@ -377,7 +413,8 @@ const ChecklistTasks = ({ fmsData, currentUser, loading, error }) => {
             </div>
             <div className="divide-y divide-gray-200">
               {groupedTasks.overdue.map((task, index) => {
-                const taskInfo = getTaskInfo(task);
+                const parsed = parseTaskInfo(task);
+                const taskInfo = parsed.cleanedTask;
                 const frequency = getFrequency(task);
                 const taskId = getTaskId(task);
                 const taskDate = getTaskDate(task);
