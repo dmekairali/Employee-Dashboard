@@ -1145,14 +1145,14 @@ const formatActivityTime = (dateStr) => {
   return (
     <div className="space-y-6">
       {/* Enhanced Header Section */}
-      <div className={`bg-gradient-to-r ${getRoleColor(currentUser.role)} rounded-xl p-6 text-white`}>
-        <div className="flex items-center justify-between">
+      <div className={`bg-gradient-to-r ${getRoleColor(currentUser.role)} rounded-xl p-4 md:p-6 text-white`}>
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold mb-2">
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">
               Good {currentTime.getHours() < 12 ? 'Morning' : currentTime.getHours() < 18 ? 'Afternoon' : 'Evening'}, {currentUser.name.split(' ')[0]}!
             </h1>
-            <p className="text-lg opacity-90 mb-1">{formatDate(currentTime)}</p>
-            <div className="flex items-center space-x-6 text-sm opacity-80">
+            <p className="text-base md:text-lg opacity-90 mb-1">{formatDate(currentTime)}</p>
+            <div className="flex items-center space-x-4 md:space-x-6 text-sm opacity-80">
               <div className="flex items-center space-x-2">
                 <Clock className="w-4 h-4" />
                 <span className="font-mono">{formatTime(currentTime)}</span>
@@ -1161,8 +1161,8 @@ const formatActivityTime = (dateStr) => {
             </div>
           </div>
           
-          <div className="text-right">
-            <div className="flex items-center space-x-4 mb-4">
+          <div className="text-left md:text-right mt-4 md:mt-0">
+            <div className="flex items-center space-x-4 mb-2 md:mb-4">
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                 <span className="text-sm">System Online</span>
@@ -1183,12 +1183,12 @@ const formatActivityTime = (dateStr) => {
       </div>
 
       {/* Enhanced Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
         {stats.map((stat, index) => (
           <div 
             key={index} 
             onClick={stat.onClick}
-            className="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-all duration-300 cursor-pointer group"
+            className="bg-white rounded-xl p-4 md:p-6 border border-gray-200 hover:shadow-lg transition-all duration-300 cursor-pointer group"
           >
             <div className="flex items-center justify-between mb-4">
               <div className={`p-3 rounded-lg ${stat.color} group-hover:scale-110 transition-transform`}>
@@ -1200,7 +1200,7 @@ const formatActivityTime = (dateStr) => {
             </div>
             
             <div className="mb-3">
-              <h3 className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</h3>
+              <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">{stat.value}</h3>
               <p className="text-gray-600 text-sm font-medium">{stat.title}</p>
             </div>
             

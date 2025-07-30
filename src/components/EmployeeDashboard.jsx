@@ -38,7 +38,8 @@ import {
   Moon,
   Briefcase,
   X,
-  CheckSquare // Added for Checklist
+  CheckSquare, // Added for Checklist
+  Menu
 } from 'lucide-react';
 import NotificationsAnnouncements from './NotificationsAnnouncements';
 import DelegationTasks from './DelegationTasks';
@@ -63,6 +64,7 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [showRightSidebar, setShowRightSidebar] = useState(false);
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
   
   // Notification counter hook
   const { unreadTodayCount } = useNotificationCounter(currentUser);
@@ -243,6 +245,9 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
 
   const handleTabChange = (tabId) => {
     setSelectedTab(tabId);
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
   };
 
   // Component to render count badge (original styling preserved)
@@ -433,9 +438,15 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex">
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
+      )}
       {/* Sidebar */}
-      <div className="fixed left-0 top-0 h-full w-64 bg-sidebar-background border-r border-border-color z-40">
+      <div className={`fixed left-0 top-0 h-full w-64 bg-sidebar-background border-r border-border-color z-40 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out`}>
         <div className="p-6">
           <div className="flex items-center space-x-3">
             <div className={`w-10 h-10 bg-gradient-to-br ${getRoleColor(currentUser.role)} rounded-lg flex items-center justify-center`}>
@@ -452,7 +463,7 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
           {navigationItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setSelectedTab(item.id)}
+              onClick={() => handleTabChange(item.id)}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left transition-all duration-200 group ${
                 selectedTab === item.id 
                   ? item.special 
@@ -525,49 +536,57 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
       </div>
 
       {/* Main Content */}
-      <div className="ml-64">
+      <div className="flex-1 md:ml-64">
         {/* Header */}
-        <header className="bg-card-background border-b border-border-color px-8 py-4">
+        <header className="bg-card-background border-b border-border-color px-4 sm:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground flex items-center">
-                {selectedTab === 'management' && (
-                  <Gauge className="w-6 h-6 mr-3 text-purple-600" />
-                )}
-                {selectedTab === 'checklist' && (
-                  <CheckSquare className="w-6 h-6 mr-3 text-green-600" />
-                )}
-                {getPageTitle()}
-                {selectedTab === 'management' && (
-                  <span className="ml-3 px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full font-semibold">
-                    EXECUTIVE
-                  </span>
-                )}
-              </h2>
-              <p className="text-sidebar-foreground">
-                {selectedTab === 'overview' 
-                  ? <TimeDisplay />
-                  : selectedTab === 'management'
-                  ? 'Real-time organizational insights and performance analytics'
-                  : selectedTab === 'checklist'
-                  ? `Checklist tasks assigned to ${currentUser.name} as Doer`
-                  : `${currentUser.role} • ${currentUser.department}`
-                }
-              </p>
+            <div className="flex items-center">
+              <button
+                className="md:hidden p-2 mr-2 text-sidebar-foreground hover:text-foreground"
+                onClick={() => setSidebarOpen(true)}
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              <div>
+                <h2 className="text-xl md:text-2xl font-bold text-foreground flex items-center">
+                  {selectedTab === 'management' && (
+                    <Gauge className="w-6 h-6 mr-3 text-purple-600 hidden md:block" />
+                  )}
+                  {selectedTab === 'checklist' && (
+                    <CheckSquare className="w-6 h-6 mr-3 text-green-600 hidden md:block" />
+                  )}
+                  {getPageTitle()}
+                  {selectedTab === 'management' && (
+                    <span className="ml-3 px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full font-semibold hidden lg:block">
+                      EXECUTIVE
+                    </span>
+                  )}
+                </h2>
+                <p className="text-sidebar-foreground text-sm hidden md:block">
+                  {selectedTab === 'overview'
+                    ? <TimeDisplay />
+                    : selectedTab === 'management'
+                    ? 'Real-time organizational insights and performance analytics'
+                    : selectedTab === 'checklist'
+                    ? `Checklist tasks assigned to ${currentUser.name} as Doer`
+                    : `${currentUser.role} • ${currentUser.department}`
+                  }
+                </p>
+              </div>
             </div>
             
-            <div className="flex items-center space-x-4">
-              <div className="relative">
+            <div className="flex items-center space-x-2 md:space-x-4">
+              <div className="relative hidden md:block">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sidebar-foreground w-4 h-4" />
                 <input
                   type="text"
                   placeholder={selectedTab === 'management' ? 
-                    "Search organizational data..." : 
+                    "Search org data..." :
                     selectedTab === 'checklist' ?
-                    "Search checklist tasks..." :
-                    "Search tickets, tasks..."
+                    "Search checklist..." :
+                    "Search tasks..."
                   }
-                  className="pl-10 pr-4 py-2 border border-border-color rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card-background text-foreground w-80"
+                  className="pl-10 pr-4 py-2 border border-border-color rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card-background text-foreground w-48 lg:w-80"
                 />
               </div>
               <button
@@ -588,7 +607,7 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
         </header>
 
         {/* Dashboard Content */}
-        <main className="p-8">
+        <main className="p-4 sm:p-8">
           {selectedTab === 'notifications' && (
             <NotificationsAnnouncements currentUser={currentUser} />
           )}

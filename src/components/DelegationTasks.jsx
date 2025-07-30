@@ -601,106 +601,105 @@ const isRefreshing = loading || isManualRefreshing;
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 flex items-center">
             <Users className="w-6 h-6 mr-3 text-blue-600" />
             Delegation Tasks
           </h2>
-          <p className="text-gray-600">
-            Tasks assigned to {currentUser.name} • Sorted by 80/20 Priority Score
+          <p className="text-gray-600 text-sm md:text-base">
+            Tasks assigned to {currentUser.name}
             {lastRefresh && (
-              <span className="text-sm text-gray-500 ml-2">
+              <span className="hidden md:inline text-sm text-gray-500 ml-2">
                 • Last updated: {lastRefresh.toLocaleTimeString()}
               </span>
             )}
           </p>
         </div>
         <button 
-  onClick={refresh}
-  disabled={isRefreshing}
-  className={`p-2 text-white rounded-lg transition-colors flex items-center space-x-2 ${
-    isRefreshing 
-      ? 'bg-gray-400 cursor-not-allowed' 
-      : 'bg-green-600 hover:bg-green-700'
-  }`}
-  title={isRefreshing ? "Refreshing..." : "Refresh"}
->
-  <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-  <span className="text-sm">
-    {isRefreshing ? 'Refreshing...' : 'Refresh'}
-  </span>
-</button>
+          onClick={refresh}
+          disabled={isRefreshing}
+          className={`p-2 text-white rounded-lg transition-colors flex items-center space-x-2 self-start md:self-center ${
+            isRefreshing
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-green-600 hover:bg-green-700'
+          }`}
+          title={isRefreshing ? "Refreshing..." : "Refresh"}
+        >
+          <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span className="text-sm">
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </span>
+        </button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="bg-white p-3 md:p-4 rounded-lg border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Tasks</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              <p className="text-xs md:text-sm text-gray-500">Total Tasks</p>
+              <p className="text-xl md:text-2xl font-bold text-gray-900">{stats.total}</p>
             </div>
-            <Users className="w-8 h-8 text-blue-500" />
+            <Users className="w-6 md:w-8 h-6 md:h-8 text-blue-500" />
           </div>
         </div>
         
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="bg-white p-3 md:p-4 rounded-lg border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">High Priority</p>
-              <p className="text-sm text-gray-400">(50+ Score)</p>
-              <p className="text-2xl font-bold text-orange-600">{stats.highPriority}</p>
+              <p className="text-xs md:text-sm text-gray-500">High Priority</p>
+              <p className="text-xl md:text-2xl font-bold text-orange-600">{stats.highPriority}</p>
             </div>
-            <Star className="w-8 h-8 text-orange-500" />
+            <Star className="w-6 md:w-8 h-6 md:h-8 text-orange-500" />
           </div>
         </div>
         
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="bg-white p-3 md:p-4 rounded-lg border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Completed</p>
-              <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
+              <p className="text-xs md:text-sm text-gray-500">Completed</p>
+              <p className="text-xl md:text-2xl font-bold text-green-600">{stats.completed}</p>
             </div>
-            <CheckCircle className="w-8 h-8 text-green-500" />
+            <CheckCircle className="w-6 md:w-8 h-6 md:h-8 text-green-500" />
           </div>
         </div>
         
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="bg-white p-3 md:p-4 rounded-lg border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Hold</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.hold}</p>
+              <p className="text-xs md:text-sm text-gray-500">Hold</p>
+              <p className="text-xl md:text-2xl font-bold text-yellow-600">{stats.hold}</p>
             </div>
-            <Clock className="w-8 h-8 text-yellow-500" />
+            <Clock className="w-6 md:w-8 h-6 md:h-8 text-yellow-500" />
           </div>
         </div>
         
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="bg-white p-3 md:p-4 rounded-lg border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Pending</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.pending}</p>
+              <p className="text-xs md:text-sm text-gray-500">Pending</p>
+              <p className="text-xl md:text-2xl font-bold text-blue-600">{stats.pending}</p>
             </div>
-            <AlertCircle className="w-8 h-8 text-blue-500" />
+            <AlertCircle className="w-6 md:w-8 h-6 md:h-8 text-blue-500" />
           </div>
         </div>
         
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
+        <div className="bg-white p-3 md:p-4 rounded-lg border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Overdue</p>
-              <p className="text-2xl font-bold text-red-600">{stats.overdue}</p>
+              <p className="text-xs md:text-sm text-gray-500">Overdue</p>
+              <p className="text-xl md:text-2xl font-bold text-red-600">{stats.overdue}</p>
             </div>
-            <AlertTriangle className="w-8 h-8 text-red-500" />
+            <AlertTriangle className="w-6 md:w-8 h-6 md:h-8 text-red-500" />
           </div>
         </div>
       </div>
 
       {/* Filters and Sorting */}
       <div className="bg-white p-4 rounded-lg border border-gray-200">
-        <div className="flex flex-wrap gap-4 items-center">
-          <div className="flex-1 min-w-64">
+        <div className="flex flex-col md:flex-row flex-wrap gap-4 items-center">
+          <div className="flex-1 w-full md:w-auto md:min-w-64">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
@@ -713,50 +712,52 @@ const isRefreshing = loading || isManualRefreshing;
             </div>
           </div>
           
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="hold">Hold</option>
-            <option value="completed">Completed</option>
-          </select>
-          
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All Priority</option>
-            <option value="urgent">Urgent (75-100)</option>
-            <option value="high">High (50-75)</option>
-            <option value="medium">Medium (25-50)</option>
-            <option value="low">Low (0-25)</option>
-          </select>
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="hold">Hold</option>
+              <option value="completed">Completed</option>
+            </select>
 
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="80_20">Sort by 80/20 Score</option>
-            <option value="ease">Sort by Ease to Implement</option>
-            <option value="impact">Sort by Relative Impact</option>
-            <option value="urgency">Sort by Urgency</option>
-            <option value="importance">Sort by Importance</option>
-            <option value="roti">Sort by ROTI</option>
-            <option value="date">Sort by Date</option>
-          </select>
+            <select
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1"
+            >
+              <option value="all">All Priority</option>
+              <option value="urgent">Urgent</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
 
-          <button
-            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            title={`Sort ${sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
-          >
-            {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
-          </button>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1"
+            >
+              <option value="80_20">Sort by Score</option>
+              <option value="ease">Sort by Ease</option>
+              <option value="impact">Sort by Impact</option>
+              <option value="urgency">Sort by Urgency</option>
+              <option value="importance">Sort by Importance</option>
+              <option value="roti">Sort by ROTI</option>
+              <option value="date">Sort by Date</option>
+            </select>
+
+            <button
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              title={`Sort ${sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
+            >
+              {sortOrder === 'asc' ? <ArrowUp className="w-5 h-5" /> : <ArrowDown className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -784,10 +785,10 @@ const isRefreshing = loading || isManualRefreshing;
                   setShowModal(true);
                 }}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 min-w-0 pr-4">
-                    <div className="flex items-center space-x-3 mb-2 flex-wrap">
-                      <h4 className="font-medium text-gray-900 break-words flex-1 min-w-0">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col md:flex-row md:items-center gap-2 mb-2">
+                      <h4 className="font-medium text-gray-900 break-words flex-1">
                         {getTaskTitle(task)}
                       </h4>
                       <div className="flex items-center space-x-2 flex-shrink-0">
@@ -803,53 +804,53 @@ const isRefreshing = loading || isManualRefreshing;
                       </div>
                     </div>
                     
-                    <div className="flex items-center space-x-4 text-sm text-gray-500 mb-2 flex-wrap">
+                    <div className="flex flex-col md:flex-row md:items-center space-y-2 md:space-y-0 md:space-x-4 text-sm text-gray-500 mb-2">
                       <span className="flex items-center">
-                        <Building2 className="w-4 h-4 mr-1 flex-shrink-0" />
+                        <Building2 className="w-4 h-4 mr-1.5 flex-shrink-0" />
                         <span className="truncate">{getTaskCompany(task)}</span>
                       </span>
                       <span className="flex items-center">
-                        <Calendar className="w-4 h-4 mr-1 flex-shrink-0" />
+                        <Calendar className="w-4 h-4 mr-1.5 flex-shrink-0" />
                         <span className="truncate">{getTaskDate(task)}</span>
                       </span>
                       {getDueDate(task) && (
                         <span className="flex items-center">
-                          <Clock className="w-4 h-4 mr-1 flex-shrink-0" />
+                          <Clock className="w-4 h-4 mr-1.5 flex-shrink-0" />
                           <span className="truncate">Due: {getDueDate(task)}</span>
                         </span>
                       )}
                     </div>
 
                     {/* Priority Metrics Row */}
-                    <div className="flex items-center space-x-4 text-xs text-gray-600 flex-wrap gap-y-1">
+                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
                       <span className="flex items-center">
-                        <Zap className="w-3 h-3 mr-1 text-blue-500 flex-shrink-0" />
-                        Ease: {getEaseToImplement(task)}/10
+                        <Zap className="w-3 h-3 mr-1 text-blue-500" />
+                        Ease: {getEaseToImplement(task)}
                       </span>
                       <span className="flex items-center">
-                        <TrendingUp className="w-3 h-3 mr-1 text-green-500 flex-shrink-0" />
-                        Impact: {getRelativeImpact(task)}/10
+                        <TrendingUp className="w-3 h-3 mr-1 text-green-500" />
+                        Impact: {getRelativeImpact(task)}
                       </span>
                       <span className="flex items-center">
-                        <AlertTriangle className="w-3 h-3 mr-1 text-red-500 flex-shrink-0" />
-                        Urgency: {getUrgency(task)}/5
+                        <AlertTriangle className="w-3 h-3 mr-1 text-red-500" />
+                        Urgency: {getUrgency(task)}
                       </span>
                       <span className="flex items-center">
-                        <Star className="w-3 h-3 mr-1 text-purple-500 flex-shrink-0" />
-                        Importance: {getImportance(task)}/5
+                        <Star className="w-3 h-3 mr-1 text-purple-500" />
+                        Importance: {getImportance(task)}
                       </span>
                       <span className="flex items-center">
-                        <Award className="w-3 h-3 mr-1 text-pink-500 flex-shrink-0" />
-                        ROTI: {getROTI(task)}/3
+                        <Award className="w-3 h-3 mr-1 text-pink-500" />
+                        ROTI: {getROTI(task)}
                       </span>
                     </div>
                   </div>
                   
-                  <div className="flex items-center space-x-2 flex-shrink-0">
+                  <div className="flex items-center space-x-2 flex-shrink-0 self-start md:self-center">
                     {getSubmissionLink(task) && (
                       <ExternalLink className="w-4 h-4 text-blue-500" />
                     )}
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                    <ChevronRight className="w-5 h-5 text-gray-400" />
                   </div>
                 </div>
               </div>
