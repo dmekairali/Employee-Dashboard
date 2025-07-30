@@ -57,7 +57,7 @@ import LoginTimer from './LoginTimer';
 import { useNotificationCounter } from '../hooks/useNotificationCounter';
 
 const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
-  const [selectedTab, setSelectedTab] = useState('notifications');
+  const [selectedTab, setSelectedTab] = useState('overview');
   const [notifications, setNotifications] = useState(6);
   const [newTaskNotifications, setNewTaskNotifications] = useState([]);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
