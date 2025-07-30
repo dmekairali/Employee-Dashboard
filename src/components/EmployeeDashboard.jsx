@@ -1,4 +1,4 @@
-// Updated EmployeeDashboard.jsx with Management Tab
+// Updated EmployeeDashboard.jsx with Notification Counter
 import React, { useState, useEffect, useMemo, useContext } from 'react';
 import { ThemeContext } from '../context/ThemeContext';
 import { 
@@ -52,6 +52,7 @@ import Overview from './Overview';
 import dataManager from '../utils/DataManager';
 import TimeDisplay from './TimeDisplay';
 import LoginTimer from './LoginTimer';
+import { useNotificationCounter } from '../hooks/useNotificationCounter';
 
 const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
   const [selectedTab, setSelectedTab] = useState('notifications');
@@ -60,6 +61,9 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [showRightSidebar, setShowRightSidebar] = useState(false);
   const { isDarkMode, toggleTheme } = useContext(ThemeContext);
+  
+  // Notification counter hook
+  const { unreadTodayCount } = useNotificationCounter(currentUser);
   
   // State for pending counts
   const [pendingCounts, setPendingCounts] = useState({
@@ -70,77 +74,74 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
     hs: 0
   });
 
-  // Function to calculate pending counts from cached data
+  // Calculate pending counts based on cached data
   const calculatePendingCounts = useMemo(() => {
     return () => {
-      const counts = {
-        ht: 0,
-        delegation: 0,
-        fms: 0,
-        pc: 0,
-        hs: 0
-      };
-
+      const counts = { ht: 0, delegation: 0, fms: 0, pc: 0, hs: 0 };
+      
       try {
-        // HT Tasks - Reply pending (assigned to user)
+        // Get data from cache
+        const delegationData = dataManager.getDataWithFallback('delegation', currentUser.name);
+        const fmsData = dataManager.getDataWithFallback('fms', currentUser.name);
+        const htData = dataManager.getDataWithFallback('ht', currentUser.name);
+        const pcData = dataManager.getDataWithFallback('pc', currentUser.name);
+        const hsData = dataManager.getDataWithFallback('hs', currentUser.name);
+
+        // Count pending delegation tasks
+        if (currentUser.permissions.canViewDelegation) {
+          counts.delegation = delegationData.filter(task => 
+            (task.delegation_status || 'pending').toLowerCase().includes('pending')
+          ).length;
+        }
+
+        // Count pending FMS tasks
+        if (currentUser.permissions.canViewFMS) {
+          counts.fms = fmsData.filter(task => {
+            const delay = parseFloat(task.delay || 0);
+            return delay > 0; // Tasks with positive delay are considered pending/overdue
+          }).length;
+        }
+
+        // Count pending PC tasks
+        if (currentUser.permissions.canViewPC) {
+          counts.pc = pcData.filter(task => {
+            const delay = parseFloat(task.delay || 0);
+            return delay > 0;
+          }).length;
+        }
+
+        // Count pending HT tasks (tasks raised on this user awaiting reply)
         if (currentUser.permissions.canViewHT) {
-          const htData = dataManager.getDataWithFallback('ht', currentUser.name);
           const htRaisedOnYou = htData.filter(task => task.issueDelegatedTo === currentUser.name);
           counts.ht = htRaisedOnYou.filter(task => 
             (!task.replyActual || task.replyActual.trim() === '')
           ).length;
         }
 
-        // Delegation Tasks - Pending status
-        if (currentUser.permissions.canViewDelegation) {
-          const delegationData = dataManager.getDataWithFallback('delegation', currentUser.name);
-          counts.delegation = delegationData.filter(task => 
-            (task.delegation_status || 'pending').toLowerCase().includes('pending')
-          ).length;
+        // Count pending HS tasks
+        if (currentUser.permissions.canViewHS) {
+          // Check if user is director
+          const isDirector = 
+            (currentUser?.role?.toLowerCase() === 'director') || 
+            (currentUser?.department?.toLowerCase() === 'director');
+          
+          if (isDirector) {
+            // Directors: count all help slips awaiting director's reply
+            counts.hs = hsData.filter(task => 
+              task.helpSlipId && task.helpSlipId.trim() !== '' &&
+              (!task.replyActual || task.replyActual.trim() === '')
+            ).length;
+          } else {
+            // Regular users: count only their own pending tasks
+            const userHSData = hsData.filter(task => 
+              task.name === currentUser.name || task.assignedTo === currentUser.name
+            );
+            counts.hs = userHSData.filter(task => 
+              task.replyPlanned && task.replyPlanned.trim() !== '' &&
+              (!task.replyActual || task.replyActual.trim() === '')
+            ).length;
+          }
         }
-
-        // FMS Tasks - Overdue/Delayed tasks
-        if (currentUser.permissions.canViewFMS) {
-          const fmsData = dataManager.getDataWithFallback('fms', currentUser.name);
-          counts.fms = fmsData.filter(task => task.delay && task.delay.trim() !== '').length;
-        }
-
-        // PC Tasks - Overdue tasks
-        if (currentUser.permissions.canViewPC) {
-          const pcData = dataManager.getDataWithFallback('pc', currentUser.name);
-          counts.pc = pcData.filter(task => {
-            const delay = task.delay || '';
-            return delay && delay.trim() !== '';
-          }).length;
-        }
-
-
-       // HS Tasks - Reply pending (role-based logic)
-if (currentUser.permissions.canViewHS) {
-  const hsData = dataManager.getDataWithFallback('hs', currentUser.name);
-  
-  // Check if user is director
-  const isDirector = 
-    (currentUser?.role?.toLowerCase() === 'director') || 
-    (currentUser?.department?.toLowerCase() === 'director');
-  
-  if (isDirector) {
-    // Directors: count all help slips awaiting director's reply
-    counts.hs = hsData.filter(task => 
-      task.helpSlipId && task.helpSlipId.trim() !== '' &&
-      (!task.replyActual || task.replyActual.trim() === '')
-    ).length;
-  } else {
-    // Regular users: count only their own pending tasks
-    const userHSData = hsData.filter(task => 
-      task.name === currentUser.name || task.assignedTo === currentUser.name
-    );
-    counts.hs = userHSData.filter(task => 
-      task.replyPlanned && task.replyPlanned.trim() !== '' &&
-      (!task.replyActual || task.replyActual.trim() === '')
-    ).length;
-  }
-}
 
       } catch (error) {
         console.error('Error calculating pending counts:', error);
@@ -150,18 +151,17 @@ if (currentUser.permissions.canViewHS) {
     };
   }, [currentUser.name, currentUser.permissions]);
 
-  // Update pending counts every 2 minutes
+  // Update pending counts every 30 seconds
   useEffect(() => {
     const updateCounts = () => {
       const newCounts = calculatePendingCounts();
       setPendingCounts(newCounts);
-     // console.log('Updated pending counts:', newCounts);
     };
 
     // Initial update
     updateCounts();
 
-    // Set up interval for every 30 sec
+    // Set up interval for every 30 seconds
     const interval = setInterval(updateCounts, 30 * 1000);
 
     return () => clearInterval(interval);
@@ -171,8 +171,6 @@ if (currentUser.permissions.canViewHS) {
   useEffect(() => {
     if (currentUser) {
       const handleNewTasks = (notification) => {
-        //console.log('New tasks detected:', notification);
-
         setNewTaskNotifications(prev => {
           const existingIndex = prev.findIndex(n => n.component === notification.component);
           
@@ -228,7 +226,7 @@ if (currentUser.permissions.canViewHS) {
     setSelectedTab(tabId);
   };
 
-  // Component to render count badge
+  // Component to render count badge (original styling preserved)
   const CountBadge = ({ count, type = 'default' }) => {
     if (!count || count === 0) return null;
 
@@ -254,6 +252,17 @@ if (currentUser.permissions.canViewHS) {
     );
   };
 
+  // Special badge for notifications only
+  const NotificationBadge = ({ count }) => {
+    if (!count || count === 0) return null;
+
+    return (
+      <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none rounded-full bg-red-500 text-white animate-pulse ml-auto">
+        {count > 99 ? '99+' : count}
+      </span>
+    );
+  };
+
   // Check if user is management level
   const isManagementUser = () => {
     const managementRoles = ['director', 'manager', 'ceo', 'cto', 'admin','ea'];
@@ -273,14 +282,15 @@ if (currentUser.permissions.canViewHS) {
         label: 'Notifications', 
         icon: Bell, 
         permission: 'canViewOverview',
-        count: 0 // Notifications don't need pending count
+        count: unreadTodayCount,
+        isNotification: true
       },
       { 
         id: 'overview', 
         label: 'Overview', 
         icon: Home, 
         permission: 'canViewOverview',
-        count: 0 // Overview doesn't need pending count
+        count: 0
       },
       { 
         id: 'ht-tasks', 
@@ -322,23 +332,23 @@ if (currentUser.permissions.canViewHS) {
         label: 'Analytics', 
         icon: BarChart3, 
         permission: 'canViewAnalytics',
-        count: 0 // Analytics doesn't need pending count
+        count: 0
       },
       // Management Dashboard - Only show for management users
       ...(isManagementUser() ? [{
         id: 'management', 
         label: 'Management', 
         icon: Gauge, 
-        permission: 'canViewAdmin', // Using admin permission as proxy for management access
-        count: 0, // Management doesn't need pending count
-        special: true // Mark as special to style differently
+        permission: 'canViewAdmin',
+        count: 0,
+        special: true
       }] : []),
       { 
         id: 'admin', 
         label: 'Admin', 
         icon: Settings, 
         permission: 'canViewAdmin',
-        count: 0 // Admin doesn't need pending count
+        count: 0
       },
     ];
 
@@ -431,8 +441,12 @@ if (currentUser.permissions.canViewHS) {
                 )}
               </div>
               
-              {/* Count Badge */}
-              <CountBadge count={item.count} />
+              {/* Count Badge - Use special notification badge for notifications */}
+              {item.isNotification ? (
+                <NotificationBadge count={item.count} />
+              ) : (
+                <CountBadge count={item.count} />
+              )}
             </button>
           ))}
         </nav>
@@ -514,30 +528,21 @@ if (currentUser.permissions.canViewHS) {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sidebar-foreground w-4 h-4" />
                 <input
                   type="text"
-                  placeholder={selectedTab === 'management' ? "Search organizations..." : "Search tickets, tasks..."}
-                  className="pl-10 pr-4 py-2 w-80 border border-border-color rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-background text-foreground"
+                  placeholder={selectedTab === 'management' ? 
+                    "Search organizational data..." : "Search tickets, tasks..."
+                  }
+                  className="pl-10 pr-4 py-2 border border-border-color rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card-background text-foreground w-80"
                 />
               </div>
-              
-              <button className="relative p-2 text-sidebar-foreground hover:text-foreground hover:bg-background rounded-lg transition-colors">
-                <Bell className="w-5 h-5" />
-                {notifications > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
-                    {notifications > 99 ? '99+' : notifications}
-                  </span>
-                )}
-              </button>
-              
               <button
                 onClick={() => setShowRightSidebar(true)}
-                className="p-2 text-sidebar-foreground hover:text-foreground hover:bg-background rounded-lg transition-colors"
+                className="relative p-2 text-sidebar-foreground hover:text-foreground transition-colors"
               >
-                <Settings className="w-5 h-5" />
+                <User className="w-5 h-5" />
               </button>
-
               <button
                 onClick={toggleTheme}
-                className="p-2 text-sidebar-foreground hover:text-foreground hover:bg-background rounded-lg transition-colors"
+                className="p-2 text-sidebar-foreground hover:text-foreground transition-colors"
                 title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
               >
                 {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -591,34 +596,11 @@ if (currentUser.permissions.canViewHS) {
           {selectedTab === 'admin' && currentUser.permissions.canViewAdmin && (
             <AdminNotifications currentUser={currentUser} />
           )}
-
-          {/* Access Denied Messages */}
-          {selectedTab === 'management' && !isManagementUser() && (
-            <div className="bg-card-background rounded-xl p-8 border border-border-color">
-              <div className="text-center">
-                <Shield className="w-12 h-12 text-purple-500 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-foreground mb-2">Management Access Required</h2>
-                <p className="text-sidebar-foreground">You need management-level permissions to access this dashboard.</p>
-                <p className="text-sidebar-foreground text-sm mt-2">Contact your administrator to request Management access.</p>
-              </div>
-            </div>
-          )}
-
-          {selectedTab === 'admin' && !currentUser.permissions.canViewAdmin && (
-            <div className="bg-card-background rounded-xl p-8 border border-border-color">
-              <div className="text-center">
-                <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-foreground mb-2">Access Denied</h2>
-                <p className="text-sidebar-foreground">You don't have permission to access the Admin panel.</p>
-                <p className="text-sidebar-foreground text-sm mt-2">Contact your administrator to request Admin access.</p>
-              </div>
-            </div>
-          )}
         </main>
       </div>
 
       {/* New Task Notification Modal */}
-      {showNewTaskModal && newTaskNotifications.length > 0 && (
+      {showNewTaskModal && (
         <NewTaskNotification 
           notifications={newTaskNotifications}
           onClose={handleCloseNewTaskModal}
@@ -626,61 +608,64 @@ if (currentUser.permissions.canViewHS) {
         />
       )}
 
+      {/* Right Sidebar - User Profile */}
       {showRightSidebar && (
-  <div className="fixed top-0 right-0 h-full w-80 bg-white shadow-lg z-50">
-    {/* Header */}
-    <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-      <h2 className="text-2xl font-bold text-gray-900">Profile</h2>
-      <button 
-        onClick={() => setShowRightSidebar(false)} 
-        className="text-gray-500 hover:text-red-500 transition-colors"
-      >
-        <X className="w-6 h-6" />
-      </button>
-    </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end">
+          <div className="bg-white w-80 h-full shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Profile</h2>
+              <button 
+                onClick={() => setShowRightSidebar(false)} 
+                className="text-gray-500 hover:text-red-500 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
 
-    {/* Profile Section */}
-    <div className="p-8 text-center">
-      <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
-        <span className="text-white font-bold text-4xl">
-          {currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
-        </span>
-      </div>
-      <h3 className="text-2xl font-semibold text-gray-900">{currentUser.name}</h3>
-      <p className="text-gray-600">{currentUser.email}</p>
-    </div>
+            {/* Profile Section */}
+            <div className="p-8 text-center">
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-white font-bold text-4xl">
+                  {currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                </span>
+              </div>
+              <h3 className="text-2xl font-semibold text-gray-900">{currentUser.name}</h3>
+              <p className="text-gray-600">{currentUser.email}</p>
+            </div>
 
-    {/* Info Cards */}
-    <div className="bg-gray-50 p-6 space-y-4">
-      <div className="flex items-center space-x-4 p-3 bg-white rounded-lg shadow-sm">
-        <Briefcase className="w-6 h-6 text-blue-500" />
-        <div>
-          <p className="text-sm text-gray-500">Role</p>
-          <p className="font-semibold text-gray-900">{currentUser.role}</p>
+            {/* Info Cards */}
+            <div className="bg-gray-50 p-6 space-y-4">
+              <div className="flex items-center space-x-4 p-3 bg-white rounded-lg shadow-sm">
+                <Briefcase className="w-6 h-6 text-blue-500" />
+                <div>
+                  <p className="text-sm text-gray-500">Role</p>
+                  <p className="font-semibold text-gray-900">{currentUser.role}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-4 p-3 bg-white rounded-lg shadow-sm">
+                <Clock className="w-6 h-6 text-blue-500" />
+                <div>
+                  <p className="text-sm text-gray-500">Logged In At</p>
+                  <p className="font-semibold text-gray-900">
+                    {new Date(parseInt(loginTime, 10)).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Logout Button */}
+              <button
+                onClick={onLogout}
+                className="w-full mt-4 bg-gradient-to-r from-red-500 to-pink-500 text-white py-3 px-4 rounded-lg font-semibold hover:from-red-600 hover:to-pink-600 transition-all duration-300"
+              >
+                <LogOut className="w-5 h-5 inline mr-2" />
+                Sign Out
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-
-      <div className="flex items-center space-x-4 p-3 bg-white rounded-lg shadow-sm">
-        <Clock className="w-6 h-6 text-blue-500" />
-        <div>
-          <p className="text-sm text-gray-500">Logged In At</p>
-          <p className="font-semibold text-gray-900">
-            {new Date(parseInt(loginTime, 10)).toLocaleString()}
-          </p>
-        </div>
-      </div>
-
-      {/* Logout Button */}
-      <button
-        onClick={onLogout}
-        className="w-full mt-4 bg-gradient-to-r from-red-500 to-pink-500 text-white py-3 px-4 rounded-lg font-semibold hover:from-red-600 hover:to-pink-600 transition-all duration-300"
-      >
-        <LogOut className="w-5 h-5 inline mr-2" />
-        Sign Out
-      </button>
-    </div>
-  </div>
-)}
+      )}
     </div>
   );
 };
