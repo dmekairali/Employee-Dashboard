@@ -106,7 +106,9 @@ const Overview = ({ currentUser, onTabChange }) => {
   useEffect(() => {
     if (!currentUser?.name) return;
 
-    const startBackgroundLoading = async () => {
+   // Replace the sequential for loop in startBackgroundLoading with this concurrent approach:
+
+const startBackgroundLoading = async () => {
   addLoadingMessage('system', 'Starting background data loading...');
   
   // Get list of permitted modules
@@ -146,8 +148,8 @@ const Overview = ({ currentUser, onTabChange }) => {
     return allCompleted;
   };
 
-  // Load modules with proper completion tracking
-  for (const module of permittedModules) {
+  // CONCURRENT LOADING: Start all modules simultaneously
+  const moduleLoadingPromises = permittedModules.map(async (module) => {
     addLoadingMessage(module, `Loading ${module.toUpperCase()} data...`);
     
     setBackgroundLoading(prev => ({ ...prev, [module]: true }));
@@ -189,16 +191,23 @@ const Overview = ({ currentUser, onTabChange }) => {
         addLoadingMessage(module, `⏳ ${module.toUpperCase()} still loading... (${attempts}/${maxAttempts})`);
       }
     }
+  });
+
+  // Wait for all modules to complete loading concurrently
+  try {
+    await Promise.all(moduleLoadingPromises);
     
-    // Check if all modules are now completed after each module finishes
-    if (checkAllModulesCompleted()) {
-      break; // Exit early if all modules are done
+    // Final check and load cached data
+    if (!checkAllModulesCompleted()) {
+      addLoadingMessage('system', '⚠ Some modules may still be loading, but showing overview now');
+      loadCachedData();
+      setTimeout(() => {
+        setLoading(false);
+      }, 1000);
     }
-  }
-  
-  // Final fallback check in case something went wrong
-  if (!checkAllModulesCompleted()) {
-    addLoadingMessage('system', '⚠ Some modules may still be loading, but showing overview now');
+  } catch (error) {
+    console.error('Error during concurrent module loading:', error);
+    addLoadingMessage('system', '❌ Error during data loading - showing overview anyway');
     loadCachedData();
     setTimeout(() => {
       setLoading(false);
