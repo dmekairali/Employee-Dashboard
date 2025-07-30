@@ -1,4 +1,6 @@
-import React, { useState, useContext } from 'react';
+// Fixed App.js - Auto Logout Implementation
+
+import React, { useState, useContext, useCallback } from 'react';
 import LoginPage from './components/LoginPage';
 import EmployeeDashboard from './components/EmployeeDashboard';
 import { ThemeProvider, ThemeContext } from './context/ThemeContext';
@@ -8,44 +10,90 @@ function AppContent() {
   const [currentUser, setCurrentUser] = useState(null);
   const { isDarkMode } = useContext(ThemeContext);
 
+  // Use useCallback to prevent unnecessary re-renders
+  const handleLogout = useCallback(() => {
+    setCurrentUser(null);
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('loginTime');
+    console.log('User logged out - session expired or manual logout');
+  }, []);
+
   const handleLogin = (user) => {
     const loginTime = Date.now();
     setCurrentUser(user);
-    console.log("START")
+    console.log("LOGIN START - Setting timer for 10 hours");
+    
     // Store user and login time in localStorage for persistence
     localStorage.setItem('currentUser', JSON.stringify(user));
-    localStorage.setItem('loginTime', loginTime);
+    localStorage.setItem('loginTime', loginTime.toString());
   };
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('currentUser');
-  };
-
+  // Check session validity on app load
   React.useEffect(() => {
     const savedUser = localStorage.getItem('currentUser');
-    if (savedUser) {
-      setCurrentUser(JSON.parse(savedUser));
+    const savedLoginTime = localStorage.getItem('loginTime');
+    
+    if (savedUser && savedLoginTime) {
+      const loginTime = parseInt(savedLoginTime, 10);
+      const currentTime = Date.now();
+      const timeElapsed = currentTime - loginTime;
+      const tenHours = 10 * 60 * 60 * 1000; // 10 hours in milliseconds
+      
+      // Check if 10 hours have already passed
+      if (timeElapsed >= tenHours) {
+        console.log('Session expired - 10 hours have passed since login');
+        // Clear expired session
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('loginTime');
+        setCurrentUser(null);
+      } else {
+        console.log(`Session valid - ${Math.floor((tenHours - timeElapsed) / (1000 * 60))} minutes remaining`);
+        setCurrentUser(JSON.parse(savedUser));
+      }
     }
   }, []);
 
+  // Auto-logout timer
   React.useEffect(() => {
     let logoutTimer;
 
     if (currentUser) {
-      // Set a timer for 10 hours (in milliseconds)
-      const timeout = 10 * 60 * 60 * 1000;
-      logoutTimer = setTimeout(() => {
-        handleLogout();
-      }, timeout);
+      const savedLoginTime = localStorage.getItem('loginTime');
+      
+      if (savedLoginTime) {
+        const loginTime = parseInt(savedLoginTime, 10);
+        const currentTime = Date.now();
+        const timeElapsed = currentTime - loginTime;
+        const tenHours = 10 * 60 * 60 * 1000; // 10 hours in milliseconds
+        
+        // Calculate remaining time
+        const remainingTime = tenHours - timeElapsed;
+        
+        if (remainingTime > 0) {
+          console.log(`Setting logout timer for ${Math.floor(remainingTime / (1000 * 60))} minutes`);
+          
+          logoutTimer = setTimeout(() => {
+            console.log('10-hour session timeout reached - logging out user');
+            handleLogout();
+          }, remainingTime);
+        } else {
+          // Session has already expired
+          console.log('Session already expired - logging out immediately');
+          handleLogout();
+        }
+      }
     }
 
-    // Clear the timer if the component unmounts or the user logs out
+    // Cleanup timer on unmount or user change
     return () => {
-      clearTimeout(logoutTimer);
+      if (logoutTimer) {
+        clearTimeout(logoutTimer);
+        console.log('Logout timer cleared');
+      }
     };
   }, [currentUser, handleLogout]);
 
+  // Theme management
   React.useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
