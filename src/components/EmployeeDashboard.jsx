@@ -446,7 +446,7 @@ const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
         ></div>
       )}
       {/* Sidebar */}
-      <div className={`fixed left-0 top-0 h-full w-64 bg-sidebar-background border-r border-border-color z-40 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out`}>
+      <div className={`fixed left-0 top-0 h-full w-64 bg-white dark:bg-gray-800 border-r border-border-color z-40 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-300 ease-in-out`}>
         <div className="p-6">
           <div className="flex items-center space-x-3">
             <div className={`w-10 h-10 bg-gradient-to-br ${getRoleColor(currentUser.role)} rounded-lg flex items-center justify-center`}>
