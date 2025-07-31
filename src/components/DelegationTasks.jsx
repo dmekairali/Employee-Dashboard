@@ -163,7 +163,7 @@ const isRefreshing = loading || isManualRefreshing;
   const getEaseToImplement = (task) => {
     // Look for various possible column names
     const possibleKeys = Object.keys(task).find(key => 
-      key.toLowerCase().includes('ease') && key.toLowerCase().includes('implement')
+      key.toLowerCase().includes('easiest')
     );
     return parseFloat(task[possibleKeys] || 0);
   };
@@ -199,7 +199,7 @@ const isRefreshing = loading || isManualRefreshing;
 
   const getSignificance = (task) => {
     const possibleKeys = Object.keys(task).find(key => 
-      key.toLowerCase().includes('significance')
+      key.toLowerCase().includes('saving') &&  key.toLowerCase().includes('future')
     );
     return parseFloat(task[possibleKeys] || 0);
   };
