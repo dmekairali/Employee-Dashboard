@@ -105,7 +105,7 @@ if (currentUser.permissions.canViewFMS) {
     const isChecklistOrHelpTicket = fmsType.toLowerCase().includes('checklist task') || 
                                     fmsType.toLowerCase().includes('helpticket');
     const delay = parseFloat(task.delay || 0);
-    return !isChecklistOrHelpTicket && delay > 0; // Tasks with positive delay are considered pending/overdue
+    return !isChecklistOrHelpTicket ; // Tasks with positive delay are considered pending/overdue
   }).length;
 }
 
