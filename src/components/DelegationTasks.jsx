@@ -414,20 +414,34 @@ const isRefreshing = loading || isManualRefreshing;
   const copyTasksToClipboard = () => {
     const formatDate = (dateString) => {
       if (!dateString) return '';
-      // Try to parse multiple date formats
+
       let date;
-      // Check for dd-mon-yyyy format
-      if (/\d{1,2}-[a-zA-Z]{3}-\d{4}/.test(dateString)) {
-        date = new Date(dateString);
-      } else {
-        // Assume MM/DD/YYYY or other standard formats
-        const parts = dateString.split(/[-/]/);
-        if (parts.length === 3) {
-          // Check for MM/DD/YYYY
-          if (parseInt(parts[0], 10) <= 12 && parseInt(parts[1], 10) <= 31) {
-            date = new Date(`${parts[2]}-${parts[0]}-${parts[1]}`);
+      const parts = dateString.split(/[-/]/);
+
+      if (parts.length === 3) {
+        const part1 = parseInt(parts[0], 10);
+        const part2 = parseInt(parts[1], 10);
+        const part3 = parseInt(parts[2], 10);
+
+        if (isNaN(part1) || isNaN(part2) || isNaN(part3)) {
+            // Handle non-numeric parts, likely 'DD-Mon-YYYY'
+            date = new Date(dateString);
+        } else {
+          // Handle numeric dates
+          if (part1 > 12 && part1 <= 31) {
+            // DD/MM/YYYY
+            date = new Date(part3, part2 - 1, part1);
+          } else if (part2 > 12 && part2 <= 31) {
+            // MM/DD/YYYY - this is unlikely in this context, but good to have
+             date = new Date(part3, part1 - 1, part2);
+          }
+          else {
+            // Assume MM/DD/YYYY for ambiguous dates like 01/02/2025
+            date = new Date(part3, part1 - 1, part2);
           }
         }
+      } else {
+        date = new Date(dateString);
       }
 
       if (!date || isNaN(date.getTime())) {
