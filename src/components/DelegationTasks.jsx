@@ -414,7 +414,26 @@ const isRefreshing = loading || isManualRefreshing;
   const copyTasksToClipboard = () => {
     const formatDate = (dateString) => {
       if (!dateString) return '';
-      const date = new Date(dateString);
+      // Try to parse multiple date formats
+      let date;
+      // Check for dd-mon-yyyy format
+      if (/\d{1,2}-[a-zA-Z]{3}-\d{4}/.test(dateString)) {
+        date = new Date(dateString);
+      } else {
+        // Assume MM/DD/YYYY or other standard formats
+        const parts = dateString.split(/[-/]/);
+        if (parts.length === 3) {
+          // Check for MM/DD/YYYY
+          if (parseInt(parts[0], 10) <= 12 && parseInt(parts[1], 10) <= 31) {
+            date = new Date(`${parts[2]}-${parts[0]}-${parts[1]}`);
+          }
+        }
+      }
+
+      if (!date || isNaN(date.getTime())) {
+        return dateString; // Return original string if parsing fails
+      }
+
       const day = String(date.getDate()).padStart(2, '0');
       const month = date.toLocaleString('default', { month: 'short' }).toLowerCase();
       const year = date.getFullYear();
