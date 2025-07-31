@@ -24,7 +24,8 @@ import {
   Award,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Copy
 } from 'lucide-react';
 import { useCachedData } from '../hooks/useCachedData';
 
@@ -36,6 +37,7 @@ const DelegationTasks = ({ currentUser }) => {
   const [sortOrder, setSortOrder] = useState('desc'); // High to low priority
   const [selectedTask, setSelectedTask] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   // Fetch function for delegation data
   const fetchDelegationData = useCallback(async () => {
@@ -409,6 +411,39 @@ const isRefreshing = loading || isManualRefreshing;
 
   const stats = getTaskStats();
 
+  const copyTasksToClipboard = () => {
+    const header = [
+      "Task Description",
+      "Final Date",
+      "Ease to Implement (1–10)",
+      "Relative Impact on Results (1–10)",
+      "Urgency (1–5)",
+      "Importance (1–5)",
+      "Emotional Energy Required (1–5)",
+      "Significance (1–5)",
+      "ROTI (1–3)"
+    ].join("\t");
+
+    const rows = filteredAndSortedTasks.map(task => {
+      return [
+        getTaskTitle(task),
+        getDueDate(task),
+        getEaseToImplement(task),
+        getRelativeImpact(task),
+        getUrgency(task),
+        getImportance(task),
+        getEmotionalEnergy(task),
+        getSignificance(task),
+        getROTI(task)
+      ].join("\t");
+    });
+
+    const clipboardText = [header, ...rows].join("\n");
+    navigator.clipboard.writeText(clipboardText);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
   const SortButton = ({ field, children }) => (
     <button
       onClick={() => handleSort(field)}
@@ -756,6 +791,19 @@ const isRefreshing = loading || isManualRefreshing;
             title={`Sort ${sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
           >
             {sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />}
+          </button>
+
+          <button
+            onClick={copyTasksToClipboard}
+            className={`flex items-center space-x-2 px-3 py-2 border rounded-lg transition-colors ${
+              isCopied
+                ? 'bg-green-100 text-green-700 border-green-200'
+                : 'border-gray-200 hover:bg-gray-50'
+            }`}
+            disabled={isCopied}
+          >
+            <Copy className="w-4 h-4" />
+            <span>{isCopied ? 'Copied!' : 'Copy'}</span>
           </button>
         </div>
       </div>
