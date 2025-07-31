@@ -412,6 +412,15 @@ const isRefreshing = loading || isManualRefreshing;
   const stats = getTaskStats();
 
   const copyTasksToClipboard = () => {
+    const formatDate = (dateString) => {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = date.toLocaleString('default', { month: 'short' }).toLowerCase();
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
+
     const header = [
       "Task Description",
       "Final Date",
@@ -421,20 +430,24 @@ const isRefreshing = loading || isManualRefreshing;
       "Importance (1–5)",
       "Emotional Energy Required (1–5)",
       "Significance (1–5)",
-      "ROTI (1–3)"
+      "ROTI (1–3)",
+      "Assigned To (Team Member, Optional)",
+      "Blocking Dependencies (Optional)"
     ].join("\t");
 
     const rows = filteredAndSortedTasks.map(task => {
       return [
         getTaskTitle(task),
-        getDueDate(task),
+        formatDate(getDueDate(task)),
         getEaseToImplement(task),
         getRelativeImpact(task),
         getUrgency(task),
         getImportance(task),
         getEmotionalEnergy(task),
         getSignificance(task),
-        getROTI(task)
+        getROTI(task),
+        "", // Assigned To
+        ""  // Blocking Dependencies
       ].join("\t");
     });
 
