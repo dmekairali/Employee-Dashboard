@@ -113,43 +113,24 @@ const DelegationTasks = ({ currentUser }) => {
     fetchDelegationData
   );
 
-
   // Add local loading state for manual refresh
-const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
 
-// Enhanced refresh function that ensures fresh data from server  
-const refresh = useCallback(async () => {
-  console.log(`🔄 Force refreshing Delegation data for ${currentUser.name} - fetching fresh from server...`);
-  
-  setIsManualRefreshing(true);
-  
-  try {
-    // Import dataManager to clear cache first
-    const { default: dataManager } = await import('../utils/DataManager');
+  // Enhanced refresh function that ensures fresh data from server  
+  const refresh = useCallback(async () => {
+    console.log(`🔄 Force refreshing Delegation data for ${currentUser.name} - fetching fresh from server...`);
     
-    // Clear the specific cache entry to force fresh fetch
-    const cacheKey = `delegation_${currentUser.name}`;
-    dataManager.cache.delete(cacheKey);
-    console.log(`🗑️ Cleared cache for ${cacheKey}`);
+    setIsManualRefreshing(true);
     
-    // Directly call the fetch function to get fresh data from server
-    const freshData = await fetchDelegationData();
-    
-    // Update cache with fresh data
-    dataManager.setData('delegation', currentUser.name, freshData);
-    
-    console.log(`✅ Successfully refreshed Delegation data: ${freshData.length} tasks`);
-    return freshData;
-  } catch (error) {
-    console.error('❌ Error during manual refresh:', error);
-    throw error;
-  } finally {
-    setIsManualRefreshing(false);
-  }
-}, [fetchDelegationData, currentUser.name]);
-
-// Combined loading state
-const isRefreshing = loading || isManualRefreshing;
+    try {
+      await originalRefresh(true); // Force refresh from server
+      console.log(`✅ Successfully refreshed Delegation data for ${currentUser.name}`);
+    } catch (error) {
+      console.error(`❌ Failed to refresh Delegation data for ${currentUser.name}:`, error);
+    } finally {
+      setIsManualRefreshing(false);
+    }
+  }, [originalRefresh, currentUser.name]);
 
   const cleanHeaderName = (header) => {
     return header
@@ -286,6 +267,11 @@ const isRefreshing = loading || isManualRefreshing;
     return task.company || 'Unknown';
   };
 
+  // NEW: Function to get Delegation ID (DID)
+  const getDelegationId = (task) => {
+    return task.did || task.delegation_id || task.task_id || task.id || 'N/A';
+  };
+
   const getTaskStatus = (task) => {
     return task.delegation_status || 'pending';
   };
@@ -311,6 +297,58 @@ const isRefreshing = loading || isManualRefreshing;
     return task.all_remarks_history || task.doer_remarks || '';
   };
 
+  // NEW: Function to get doer response status
+  const getDoerResponseStatus = (task) => {
+    return task.response_status_from_doer || task.doer_response_status || task.doer_status || '';
+  };
+
+  // NEW: Function to override row styling ONLY when doer has responded
+  const getRowStyling = (task) => {
+    const doerStatus = getDoerResponseStatus(task).toLowerCase().trim();
+    
+    if (doerStatus.includes('completed')) {
+      return 'bg-green-50 border-l-green-500'; // Prominent green for pending review
+    }
+    if (doerStatus.includes('date to be revised') || doerStatus.includes('revision')) {
+      return 'bg-orange-50 border-l-orange-400'; // Orange for revision needed
+    }
+    if (doerStatus.includes('in progress') || doerStatus.includes('working')) {
+      return 'bg-blue-50 border-l-blue-400'; // Blue for in progress
+    }
+    
+    // Return your original priority styling when no doer response
+    return getPriorityColor(getTaskPriority(task));
+  };
+
+  // NEW: Function to get doer response badge
+  const getDoerResponseBadge = (task) => {
+    const doerStatus = getDoerResponseStatus(task).toLowerCase().trim();
+    
+    if (doerStatus.includes('completed')) {
+      return {
+        text: 'Pending Review',
+        className: 'bg-green-100 text-green-800 border-green-200'
+      };
+    }
+    if (doerStatus.includes('date to be revised') || doerStatus.includes('revision')) {
+      return {
+        text: 'Revision Needed',
+        className: 'bg-orange-100 text-orange-800 border-orange-200'
+      };
+    }
+    if (doerStatus.includes('in progress') || doerStatus.includes('working')) {
+      return {
+        text: 'In Progress',
+        className: 'bg-blue-100 text-blue-800 border-blue-200'
+      };
+    }
+    
+    return {
+      text: 'Not Started',
+      className: 'bg-gray-100 text-gray-800 border-gray-200'
+    };
+  };
+
   // Check if task is overdue
   const isOverdue = (task) => {
     const dueDate = getDueDate(task);
@@ -322,6 +360,8 @@ const isRefreshing = loading || isManualRefreshing;
 
   // Enhanced filtering and sorting
   const filteredAndSortedTasks = useMemo(() => {
+    if (!Array.isArray(tasks)) return [];
+
     let filtered = tasks.filter(task => {
       const matchesSearch = searchTerm === '' || 
         getTaskTitle(task).toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -386,6 +426,8 @@ const isRefreshing = loading || isManualRefreshing;
   }, [tasks, searchTerm, statusFilter, priorityFilter, sortBy, sortOrder]);
 
   const getTaskStats = () => {
+    if (!Array.isArray(tasks)) return { total: 0, completed: 0, pending: 0, hold: 0, overdue: 0, highPriority: 0 };
+
     const total = tasks.length;
     const completed = tasks.filter(task => 
       getTaskStatus(task).toLowerCase().includes('completed')).length;
@@ -516,6 +558,12 @@ const isRefreshing = loading || isManualRefreshing;
                 <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
                   80/20 Score: {get8020Score(task)}
                 </span>
+                {/* NEW: Show doer response status badge in modal */}
+                {getDoerResponseStatus(task) && (
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getDoerResponseBadge(task).className}`}>
+                    {getDoerResponseBadge(task).text}
+                  </span>
+                )}
               </div>
             </div>
             <button 
@@ -537,6 +585,10 @@ const isRefreshing = loading || isManualRefreshing;
                   <p className="font-medium">{getTaskTitle(task)}</p>
                 </div>
                 <div>
+                  <label className="text-sm text-gray-500">Delegation ID</label>
+                  <p className="font-medium">{getDelegationId(task)}</p>
+                </div>
+                <div>
                   <label className="text-sm text-gray-500">Company</label>
                   <p>{getTaskCompany(task)}</p>
                 </div>
@@ -546,6 +598,13 @@ const isRefreshing = loading || isManualRefreshing;
                     {getTaskStatus(task)}
                   </span>
                 </div>
+                {/* NEW: Show doer response status in modal */}
+                {getDoerResponseStatus(task) && (
+                  <div>
+                    <label className="text-sm text-gray-500">Doer Response</label>
+                    <p className="font-medium">{getDoerResponseStatus(task)}</p>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -629,15 +688,17 @@ const isRefreshing = loading || isManualRefreshing;
                   {getROTI(task)}/3
                 </div>
               </div>
-              <div className="bg-orange-50 p-3 rounded-lg border-2 border-orange-200">
-                <div className="text-xs text-gray-500 mb-1">80/20 Score</div>
-                <div className="text-xl font-bold text-orange-600">
-                  {get8020Score(task)}
+            </div>
+            <div className="mt-4 text-center">
+              <div className="inline-block bg-indigo-50 p-4 rounded-lg">
+                <div className="text-xs text-gray-500 mb-1">Overall 80/20 Score</div>
+                <div className="text-2xl font-bold text-indigo-600">
+                  {get8020Score(task)}/100
                 </div>
               </div>
             </div>
           </div>
-          
+
           {getTaskRemarks(task) && (
             <div>
               <h4 className="font-semibold text-gray-900 mb-3">Remarks & History</h4>
@@ -653,10 +714,10 @@ const isRefreshing = loading || isManualRefreshing;
     </div>
   );
 
-  if (loading) {
+  if (loading && !isManualRefreshing) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader className="w-8 h-8 animate-spin text-blue-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         <span className="ml-2 text-gray-600">Loading delegation tasks...</span>
       </div>
     );
@@ -672,8 +733,7 @@ const isRefreshing = loading || isManualRefreshing;
           onClick={refresh}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
-          <RefreshCw className="w-4 h-4 inline mr-2" />
-          Retry
+          Try Again
         </button>
       </div>
     );
@@ -682,36 +742,33 @@ const isRefreshing = loading || isManualRefreshing;
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 flex items-center">
             <Users className="w-6 h-6 mr-3 text-blue-600" />
             Delegation Tasks
           </h2>
           <p className="text-gray-600">
-            Tasks assigned to {currentUser.name} • Sorted by 80/20 Priority Score
+            Tasks delegated to {currentUser.name} • {stats.total} total tasks
             {lastRefresh && (
-              <span className="text-sm text-gray-500 ml-2">
-                • Last updated: {lastRefresh.toLocaleTimeString()}
+              <span className="ml-2 text-sm text-gray-500">
+                • Updated {lastRefresh.toLocaleTimeString()}
               </span>
             )}
           </p>
         </div>
-        <button 
-  onClick={refresh}
-  disabled={isRefreshing}
-  className={`p-2 text-white rounded-lg transition-colors flex items-center space-x-2 ${
-    isRefreshing 
-      ? 'bg-gray-400 cursor-not-allowed' 
-      : 'bg-green-600 hover:bg-green-700'
-  }`}
-  title={isRefreshing ? "Refreshing..." : "Refresh"}
->
-  <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-  <span className="text-sm">
-    {isRefreshing ? 'Refreshing...' : 'Refresh'}
-  </span>
-</button>
+        <button
+          onClick={refresh}
+          disabled={isManualRefreshing}
+          className={`px-4 py-2 rounded-lg transition-colors flex items-center space-x-2 ${
+            isManualRefreshing 
+              ? 'bg-gray-400 text-white cursor-not-allowed' 
+              : 'bg-green-600 text-white hover:bg-green-700'
+          }`}
+        >
+          <RefreshCw className={`w-4 h-4 ${isManualRefreshing ? 'animate-spin' : ''}`} />
+          <span>{isManualRefreshing ? 'Refreshing...' : 'Refresh'}</span>
+        </button>
       </div>
 
       {/* Stats Cards */}
@@ -719,21 +776,10 @@ const isRefreshing = loading || isManualRefreshing;
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Total Tasks</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              <p className="text-sm text-gray-500">Total</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.total}</p>
             </div>
             <Users className="w-8 h-8 text-blue-500" />
-          </div>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">High Priority</p>
-              <p className="text-sm text-gray-400">(50+ Score)</p>
-              <p className="text-2xl font-bold text-orange-600">{stats.highPriority}</p>
-            </div>
-            <Star className="w-8 h-8 text-orange-500" />
           </div>
         </div>
         
@@ -774,6 +820,16 @@ const isRefreshing = loading || isManualRefreshing;
               <p className="text-2xl font-bold text-red-600">{stats.overdue}</p>
             </div>
             <AlertTriangle className="w-8 h-8 text-red-500" />
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">High Priority</p>
+              <p className="text-2xl font-bold text-orange-600">{stats.highPriority}</p>
+            </div>
+            <TrendingUp className="w-8 h-8 text-orange-500" />
           </div>
         </div>
       </div>
@@ -872,7 +928,7 @@ const isRefreshing = loading || isManualRefreshing;
             {filteredAndSortedTasks.map((task, index) => (
               <div 
                 key={index} 
-                className={`p-4 hover:bg-blue-50 cursor-pointer border-l-4 transition-colors ${getPriorityColor(getTaskPriority(task))}`}
+                className={`p-4 hover:bg-blue-50 cursor-pointer border-l-4 transition-colors ${getRowStyling(task)}`}
                 onClick={() => {
                   setSelectedTask(task);
                   setShowModal(true);
@@ -891,7 +947,13 @@ const isRefreshing = loading || isManualRefreshing;
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(getTaskStatus(task))}`}>
                           {getTaskStatus(task)}
                         </span>
-                        <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
+                        {/* NEW: Add doer response status badge */}
+                        {getDoerResponseStatus(task) && (
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getDoerResponseBadge(task).className}`}>
+                            {getDoerResponseBadge(task).text}
+                          </span>
+                        )}
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                           80/20: {get8020Score(task)}
                         </span>
                       </div>
@@ -900,7 +962,7 @@ const isRefreshing = loading || isManualRefreshing;
                     <div className="flex items-center space-x-4 text-sm text-gray-500 mb-2 flex-wrap">
                       <span className="flex items-center">
                         <Building2 className="w-4 h-4 mr-1 flex-shrink-0" />
-                        <span className="truncate">{getTaskCompany(task)}</span>
+                        <span className="truncate">DID: {getDelegationId(task)}</span>
                       </span>
                       <span className="flex items-center">
                         <Calendar className="w-4 h-4 mr-1 flex-shrink-0" />
