@@ -287,14 +287,14 @@ if (currentUser.permissions.canViewFMS) {
   };
 
   // Check if user is management level
-  // Check if user is management level
-const isManagementUser = () => {
+ const isManagementUser = () => {
   const managementRoles = ['director', 'ceo', 'cto', 'admin', 'ea'];
   const userRole = (currentUser.role || '').toLowerCase().trim();
   const userDepartment = (currentUser.department || '').toLowerCase().trim();
   
   return managementRoles.some(role => 
-    userRole === role ;
+    userRole === role
+  );
 };
 
   // Role-based navigation items with counts - Updated to include Checklist
