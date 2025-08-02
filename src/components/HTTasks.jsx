@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { 
   UserPlus, 
   Calendar, 
@@ -34,12 +34,24 @@ import { useCachedData } from '../hooks/useCachedData';
 const HTTasks = ({ currentUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMainTab, setSelectedMainTab] = useState('raisedOnYou'); // 'raisedOnYou' or 'raisedByYou'
-  const [selectedSubTab, setSelectedSubTab] = useState('replyPending'); // Changed default
+  const [selectedSubTab, setSelectedSubTab] = useState('replyPending');
   const [selectedTask, setSelectedTask] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  
+  // 🎨 ROW COLOR MANAGEMENT STATE
+  const [clickedReplyRows, setClickedReplyRows] = useState(new Set());
+  const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
+
+  // Clean header name function
+  const cleanHeaderName = (header) => {
+    return header
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '');
+  };
 
   // Fetch function for HT data
-  // ✅ FIXED: Fetch function with SERVER-SIDE USER FILTERING
   const fetchHTData = useCallback(async () => {
     try {
       const spreadsheetId = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_ID_HT;
@@ -68,7 +80,7 @@ const HTTasks = ({ currentUser }) => {
       // Get header row
       const headers = rows[0];
       
-      // ✅ PROCESS AND FILTER BY USER AT FETCH LEVEL
+      // Process and filter by user at fetch level
       const htTasks = rows.slice(1)
         .filter(row => row && row.length > 0) // Filter out empty rows
         .map((row, index) => {
@@ -124,7 +136,7 @@ const HTTasks = ({ currentUser }) => {
           
           return task;
         })
-        // ✅ KEY CHANGE: FILTER BY USER HERE AT FETCH LEVEL
+        // Filter by user here at fetch level
         .filter(task => {
           // Filter for tasks relevant to current user
           const isRaisedByUser = task.name === currentUser.name;
@@ -134,7 +146,7 @@ const HTTasks = ({ currentUser }) => {
           // Only include tasks that are relevant to this user
           return isRaisedByUser || isDelegatedToUser || isAssignedToUser;
         })
-        // ✅ ADDITIONAL FILTERING: Remove truly empty tasks
+        // Additional filtering: Remove truly empty tasks
         .filter(task => {
           // Ensure task has at least basic data
           return task.ticketId || task.challengeIssue || task.name;
@@ -147,73 +159,110 @@ const HTTasks = ({ currentUser }) => {
       console.error('Error fetching HT data:', error);
       throw error;
     }
-  }, [currentUser.name]); // ✅ Include currentUser.name in dependency
+  }, [currentUser.name]);
 
   // Use cached data hook
   const { data: allTasks, loading, error, refresh: originalRefresh, lastRefresh } = useCachedData(
-  'ht', 
-  currentUser, 
-  fetchHTData
-);
+    'ht', 
+    currentUser, 
+    fetchHTData
+  );
 
+  // Add local loading state for manual refresh
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
 
-// Add local loading state for manual refresh
-const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  // 🎨 TRACK WHEN DATA REFRESHES TO CLEAR CLICKED STATES
+  useEffect(() => {
+    if (lastRefresh && lastRefresh !== lastRefreshTime) {
+      console.log('🔄 Data refreshed, clearing clicked reply states');
+      setClickedReplyRows(new Set());
+      setLastRefreshTime(lastRefresh);
+    }
+  }, [lastRefresh, lastRefreshTime]);
 
-// Enhanced refresh function that ensures fresh data from server  
-const refresh = useCallback(async () => {
-  console.log(`🔄 Force refreshing HT data for ${currentUser.name} - fetching fresh from server...`);
-  
-  setIsManualRefreshing(true);
-  
-  try {
-    // Import dataManager to clear cache first
-    const { default: dataManager } = await import('../utils/DataManager');
+  // Enhanced refresh function that ensures fresh data from server and clears clicked states
+  const refresh = useCallback(async () => {
+    console.log(`🔄 Force refreshing HT data for ${currentUser.name} - clearing clicked states...`);
     
-    // Clear the specific cache entry to force fresh fetch
-    const cacheKey = `ht_${currentUser.name}`;
-    dataManager.cache.delete(cacheKey);
-    console.log(`🗑️ Cleared cache for ${cacheKey}`);
+    // Clear clicked states immediately when refresh starts
+    setClickedReplyRows(new Set());
+    setIsManualRefreshing(true);
     
-    // Directly call the fetch function to get fresh data from server
-    const freshData = await fetchHTData();
-    
-    // Update cache with fresh data
-    dataManager.setData('ht', currentUser.name, freshData);
-    
-    console.log(`✅ Successfully refreshed HT data: ${freshData.length} tasks`);
-    return freshData;
-  } catch (error) {
-    console.error('❌ Error during manual refresh:', error);
-    throw error;
-  } finally {
-    setIsManualRefreshing(false);
-  }
-}, [fetchHTData, currentUser.name]);
+    try {
+      // Import dataManager to clear cache first
+      const { default: dataManager } = await import('../utils/DataManager');
+      
+      // Clear the specific cache entry to force fresh fetch
+      const cacheKey = `ht_${currentUser.name}`;
+      dataManager.cache.delete(cacheKey);
+      console.log(`🗑️ Cleared cache for ${cacheKey}`);
+      
+      // Directly call the fetch function to get fresh data from server
+      const freshData = await fetchHTData();
+      
+      // Update cache with fresh data
+      dataManager.setData('ht', currentUser.name, freshData);
+      
+      console.log(`✅ Successfully refreshed HT data: ${freshData.length} tasks`);
+      setLastRefreshTime(Date.now());
+      return freshData;
+    } catch (error) {
+      console.error('❌ Error during manual refresh:', error);
+      throw error;
+    } finally {
+      setIsManualRefreshing(false);
+    }
+  }, [fetchHTData, currentUser.name]);
 
-// Combined loading state
-const isRefreshing = loading || isManualRefreshing;
-  
-  const cleanHeaderName = (header) => {
-    return header
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '_')
-      .replace(/_+/g, '_')
-      .replace(/^_|_$/g, '');
-  };
+  // Combined loading state
+  const isRefreshing = loading || isManualRefreshing;
+
+  // 🎨 HANDLE REPLY BUTTON CLICK
+  const handleReplyClick = useCallback((taskId, task) => {
+    console.log(`🎨 Reply clicked for task ${taskId}`);
+    setClickedReplyRows(prev => {
+      const newSet = new Set(prev);
+      newSet.add(taskId);
+      return newSet;
+    });
+    
+    // Open Google Form or reply link if available
+    const replyLink = task.replyLink || task.newLink || task.problemSolvingLink;
+    if (replyLink && replyLink.trim() !== '') {
+      window.open(replyLink, '_blank');
+    } else {
+      // You can add your Google Form URL here
+      // const googleFormUrl = `https://forms.google.com/your-form?taskId=${taskId}`;
+      // window.open(googleFormUrl, '_blank');
+      console.log('No reply link available for this task');
+    }
+  }, []);
+
+  // 🎨 GET ROW CLASSNAME BASED ON STATE - CHANGE CLICKED TO GREEN
+  const getRowClassName = useCallback((task) => {
+    const baseClass = "p-4 hover:bg-blue-50 cursor-pointer border-l-4"; // Keep original hover color
+    
+    // Only change when reply is clicked (GREEN background instead of blue)
+    if (clickedReplyRows.has(task.id) && (!task.replyActual || task.replyActual.trim() === '')) {
+      return `${baseClass} bg-green-50 border-green-500`;
+    }
+    
+    // Keep original priority colors and styling
+    return `${baseClass} ${getPriorityColor(task.challengeLevel)}`;
+  }, [clickedReplyRows]);
 
   // Filter tasks based on main tab
   const getTasksForMainTab = () => {
-  let tasks;
-  if (selectedMainTab === 'raisedOnYou') {
-    tasks = allTasks.filter(task => task.issueDelegatedTo === currentUser.name);
-  } else {
-    tasks = allTasks.filter(task => task.name === currentUser.name);
-  }
-  
-  // Sort by timestamp descending
-  return tasks.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-};
+    let tasks;
+    if (selectedMainTab === 'raisedOnYou') {
+      tasks = allTasks.filter(task => task.issueDelegatedTo === currentUser.name);
+    } else {
+      tasks = allTasks.filter(task => task.name === currentUser.name);
+    }
+    
+    // Sort by timestamp descending
+    return tasks.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  };
 
   // Get sub tabs based on main tab
   const getSubTabs = () => {
@@ -248,32 +297,26 @@ const isRefreshing = loading || isManualRefreshing;
     // Apply sub tab filter
     if (selectedMainTab === 'raisedOnYou') {
       if (selectedSubTab === 'replyPending') {
-        // Reply Pending = column 19(Planned) is not null and Column 20(Actual) is null
-        // BUT if no planned time is set, we should still show the task as pending
         filteredTasks = filteredTasks.filter(task => 
           (!task.replyActual || task.replyActual.trim() === '')
         );
       } else if (selectedSubTab === 'replyCompleted') {
-        // Reply Completed = Column 20(Actual) is not null
         filteredTasks = filteredTasks.filter(task => 
           task.replyActual && task.replyActual.trim() !== ''
         );
       }
     } else {
       if (selectedSubTab === 'replyPending') {
-        // Reply Pending = column 19(Planned) is not null and Column 20(Actual) is null
         filteredTasks = filteredTasks.filter(task => 
           task.replyPlanned && task.replyPlanned.trim() !== '' && 
           (!task.replyActual || task.replyActual.trim() === '')
         );
       } else if (selectedSubTab === 'resolvePending') {
-        // Resolve Pending = column 28(Planned) is not null and Column 29(Actual) is null
         filteredTasks = filteredTasks.filter(task => 
           task.resolvePlanned && task.resolvePlanned.trim() !== '' && 
           (!task.resolveActual || task.resolveActual.trim() === '')
         );
       } else if (selectedSubTab === 'completed') {
-        // Completed = both reply and resolve are completed
         filteredTasks = filteredTasks.filter(task => 
           task.replyActual && task.replyActual.trim() !== '' &&
           task.resolveActual && task.resolveActual.trim() !== ''
@@ -284,6 +327,9 @@ const isRefreshing = loading || isManualRefreshing;
     return filteredTasks;
   };
 
+  const filteredTasks = getFilteredTasks();
+
+  // Helper functions for styling - KEEP ORIGINAL
   const getPriorityColor = (level) => {
     switch (level?.toUpperCase()) {
       case 'HIGH': return 'border-l-red-500 bg-white';
@@ -302,210 +348,27 @@ const isRefreshing = loading || isManualRefreshing;
     }
   };
 
-  // Get the appropriate link for the task
   const getTaskLink = (task) => {
-    if (selectedMainTab === 'raisedOnYou') {
-      if (selectedSubTab === 'replyPending') {
-        // Show Problem Solving Link (column 15)
-        return task.problemSolvingLink;
-      }
-      // For reply completed, no link needed
-      return null;
-    } else {
-      if (selectedSubTab === 'replyPending') {
-        // For HT Raised By You - Reply Pending By Others, no link shown (waiting for others to reply)
-        return null;
-      } else if (selectedSubTab === 'resolvePending') {
-        // Show Resolve Link (column 31)
-        return task.resolveLink;
-      } else if (selectedSubTab === 'completed') {
-        // For completed tasks, no link needed
-        return null;
-      }
-      return null;
+    return task.replyLink || task.newLink || task.problemSolvingLink || '#';
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Not set';
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch {
+      return dateString;
     }
   };
 
-  // Calculate statistics
-  const getStats = () => {
-    const raisedOnYouTasks = allTasks.filter(task => task.issueDelegatedTo === currentUser.name);
-    const raisedByYouTasks = allTasks.filter(task => task.name === currentUser.name);
-
-    // For HT Raised On You
-    const raisedOnYouReplyPending = raisedOnYouTasks.filter(task => 
-      (!task.replyActual || task.replyActual.trim() === '')
-    ).length;
-
-    const raisedOnYouReplyCompleted = raisedOnYouTasks.filter(task => 
-      task.replyActual && task.replyActual.trim() !== ''
-    ).length;
-
-    // For HT Raised By You
-    const raisedByYouReplyPending = raisedByYouTasks.filter(task => 
-      task.replyPlanned && task.replyPlanned.trim() !== '' && 
-      (!task.replyActual || task.replyActual.trim() === '')
-    ).length;
-
-    const raisedByYouResolvePending = raisedByYouTasks.filter(task => 
-      task.resolvePlanned && task.resolvePlanned.trim() !== '' && 
-      (!task.resolveActual || task.resolveActual.trim() === '')
-    ).length;
-
-    const raisedByYouCompleted = raisedByYouTasks.filter(task => 
-      task.replyActual && task.replyActual.trim() !== '' &&
-      task.resolveActual && task.resolveActual.trim() !== ''
-    ).length;
-
-    // Calculate average delay for completed replies (planned vs actual)
-    const calculateAvgDelayReplied = () => {
-      const completedReplyTasks = raisedOnYouTasks.filter(task => 
-        task.replyPlanned && task.replyPlanned.trim() !== '' &&
-        task.replyActual && task.replyActual.trim() !== ''
-      );
-
-      if (completedReplyTasks.length === 0) return '--';
-
-      let totalDelayHours = 0;
-      let validDelays = 0;
-
-      completedReplyTasks.forEach(task => {
-        try {
-          const planned = new Date(task.replyPlanned);
-          const actual = new Date(task.replyActual);
-          
-          if (!isNaN(planned.getTime()) && !isNaN(actual.getTime())) {
-            const delayMs = actual.getTime() - planned.getTime();
-            const delayHours = delayMs / (1000 * 60 * 60); // Convert to hours
-            totalDelayHours += delayHours;
-            validDelays++;
-          }
-        } catch (error) {
-          // Skip invalid date formats
-        }
-      });
-
-      if (validDelays === 0) return '--';
-      
-      const avgHours = totalDelayHours / validDelays;
-      const hours = Math.floor(Math.abs(avgHours));
-      const minutes = Math.floor((Math.abs(avgHours) - hours) * 60);
-      const sign = avgHours < 0 ? '-' : '';
-      
-      return `${sign}${hours}:${minutes.toString().padStart(2, '0')}`;
-    };
-
-    // Calculate average delay for pending replies (planned vs now)
-    const calculateAvgDelayPending = () => {
-      const pendingReplyTasks = raisedOnYouTasks.filter(task => 
-        task.replyPlanned && task.replyPlanned.trim() !== '' &&
-        (!task.replyActual || task.replyActual.trim() === '')
-      );
-
-      if (pendingReplyTasks.length === 0) return '--';
-
-      let totalDelayHours = 0;
-      let validDelays = 0;
-      const now = new Date();
-
-      pendingReplyTasks.forEach(task => {
-        try {
-          const planned = new Date(task.replyPlanned);
-          
-          if (!isNaN(planned.getTime()) && planned.getTime() < now.getTime()) {
-            const delayMs = now.getTime() - planned.getTime();
-            const delayHours = delayMs / (1000 * 60 * 60); // Convert to hours
-            totalDelayHours += delayHours;
-            validDelays++;
-          }
-        } catch (error) {
-          // Skip invalid date formats
-        }
-      });
-
-      if (validDelays === 0) return '--';
-      
-      const avgHours = totalDelayHours / validDelays;
-      const hours = Math.floor(avgHours);
-      const minutes = Math.floor((avgHours - hours) * 60);
-      
-      return `${hours}:${minutes.toString().padStart(2, '0')}`;
-    };
-
-    const avgDelayReplied = calculateAvgDelayReplied();
-    const avgDelayPending = calculateAvgDelayPending();
-
-    return {
-      raisedOnYou: raisedOnYouTasks.length,
-      raisedByYou: raisedByYouTasks.length,
-      raisedOnYouReplyPending,
-      raisedOnYouReplyCompleted,
-      raisedByYouReplyPending,
-      raisedByYouResolvePending,
-      raisedByYouCompleted,
-      avgDelayReplied,
-      avgDelayPending
-    };
-  };
-
-  const filteredTasks = getFilteredTasks();
-  const stats = getStats();
-  const subTabs = getSubTabs();
-
-  // Get counts for current sub-tab
-  const getCurrentSubTabCount = () => {
-    if (selectedMainTab === 'raisedOnYou') {
-      if (selectedSubTab === 'replyPending') {
-        return stats.raisedOnYouReplyPending;
-      } else if (selectedSubTab === 'replyCompleted') {
-        return stats.raisedOnYouReplyCompleted;
-      }
-    } else {
-      if (selectedSubTab === 'replyPending') {
-        return stats.raisedByYouReplyPending;
-      } else if (selectedSubTab === 'resolvePending') {
-        return stats.raisedByYouResolvePending;
-      } else if (selectedSubTab === 'completed') {
-        return stats.raisedByYouCompleted;
-      }
-    }
-    return 0;
-  };
-
-  const TaskModal = ({ task, onClose }) => (
+  // Task detail modal - RESTORE ORIGINAL COMPLETE STRUCTURE
+  const TaskDetailModal = ({ task, onClose }) => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-semibold text-gray-900">HT Task Details - {task.ticketId}</h3>
             <div className="flex items-center space-x-3">
-              {/* Only show links if not in "Reply Pending By Others" mode */}
-              {!(selectedMainTab === 'raisedByYou' && selectedSubTab === 'replyPending') && 
-               (task.problemSolvingLink || task.resolveLink) && (
-                <div className="flex items-center space-x-2">
-                  {task.problemSolvingLink && selectedMainTab === 'raisedOnYou' && (
-                    <a 
-                      href={task.problemSolvingLink} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1"
-                    >
-                      <Link className="w-4 h-4" />
-                      <span>Reply Link</span>
-                    </a>
-                  )}
-                  {task.resolveLink && selectedMainTab === 'raisedByYou' && selectedSubTab === 'resolvePending' && (
-                    <a 
-                      href={task.resolveLink} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="px-3 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-1"
-                    >
-                      <Link className="w-4 h-4" />
-                      <span>Resolve Link</span>
-                    </a>
-                  )}
-                </div>
-              )}
               <button 
                 onClick={onClose}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -580,44 +443,52 @@ const isRefreshing = loading || isManualRefreshing;
                   <p>{task.department}</p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500">Priority Level</label>
-                  <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getPriorityBadge(task.challengeLevel)}`}>
+                  <label className="text-sm text-gray-500">Challenge Level</label>
+                  <span className={`px-2 py-1 rounded text-xs ${getPriorityBadge(task.challengeLevel)}`}>
                     {task.challengeLevel}
                   </span>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500">Timestamp</label>
-                  <p>{task.timestamp}</p>
-                </div>
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-3">Assignment Information</h4>
-              <div className="space-y-3">
-                <div>
                   <label className="text-sm text-gray-500">Delegated To</label>
-                  <p className="font-medium">{task.issueDelegatedTo}</p>
+                  <p>{task.issueDelegatedTo}</p>
                 </div>
                 <div>
                   <label className="text-sm text-gray-500">Delegated Email</label>
                   <p>{task.delegatedPersonEmail}</p>
                 </div>
+              </div>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-3">Timeline</h4>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm text-gray-500">Timestamp</label>
+                  <p>{formatDate(task.timestamp)}</p>
+                </div>
                 <div>
                   <label className="text-sm text-gray-500">Reply Planned</label>
-                  <p>{task.replyPlanned || 'Not set'}</p>
+                  <p>{formatDate(task.replyPlanned)}</p>
                 </div>
                 <div>
                   <label className="text-sm text-gray-500">Reply Actual</label>
-                  <p>{task.replyActual || 'Not completed'}</p>
+                  <p>{formatDate(task.replyActual)}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Reply Time Delay</label>
+                  <p>{task.replyTimeDelay}</p>
                 </div>
                 <div>
                   <label className="text-sm text-gray-500">Resolve Planned</label>
-                  <p>{task.resolvePlanned || 'Not set'}</p>
+                  <p>{formatDate(task.resolvePlanned)}</p>
                 </div>
                 <div>
                   <label className="text-sm text-gray-500">Resolve Actual</label>
-                  <p>{task.resolveActual || 'Not completed'}</p>
+                  <p>{formatDate(task.resolveActual)}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500">Resolve Time Delay</label>
+                  <p>{task.resolveTimeDelay}</p>
                 </div>
               </div>
             </div>
@@ -625,9 +496,81 @@ const isRefreshing = loading || isManualRefreshing;
 
           {task.attachment && (
             <div>
-              <h4 className="font-semibold text-gray-900 mb-3">Attachment (If Any)</h4>
+              <h4 className="font-semibold text-gray-900 mb-3">Attachment</h4>
               <div className="bg-blue-50 p-3 rounded-lg">
                 <p className="text-sm text-blue-800">{task.attachment}</p>
+              </div>
+            </div>
+          )}
+
+          {(task.resolveAttachment || task.finalTicketId || task.finalDoer || task.problemResolved || task.remarks) && (
+            <div>
+              <h4 className="font-semibold text-gray-900 mb-3">Resolution Details</h4>
+              <div className="space-y-3">
+                {task.resolveAttachment && (
+                  <div>
+                    <label className="text-sm text-gray-500">Resolve Attachment</label>
+                    <p>{task.resolveAttachment}</p>
+                  </div>
+                )}
+                {task.finalTicketId && (
+                  <div>
+                    <label className="text-sm text-gray-500">Final Ticket ID</label>
+                    <p>{task.finalTicketId}</p>
+                  </div>
+                )}
+                {task.finalDoer && (
+                  <div>
+                    <label className="text-sm text-gray-500">Final Doer</label>
+                    <p>{task.finalDoer}</p>
+                  </div>
+                )}
+                {task.problemResolved && (
+                  <div>
+                    <label className="text-sm text-gray-500">Problem Resolved</label>
+                    <p>{task.problemResolved}</p>
+                  </div>
+                )}
+                {task.remarks && (
+                  <div>
+                    <label className="text-sm text-gray-500">Remarks</label>
+                    <p>{task.remarks}</p>
+                  </div>
+                )}
+                {task.finalTimestamp && (
+                  <div>
+                    <label className="text-sm text-gray-500">Final Timestamp</label>
+                    <p>{formatDate(task.finalTimestamp)}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 🎨 ADD REPLY BUTTON - ONLY NEW ADDITION */}
+          {task.issueDelegatedTo === currentUser.name && 
+           (!task.replyActual || task.replyActual.trim() === '') && (
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between bg-yellow-50 p-4 rounded-lg">
+                <div>
+                  <h4 className="font-semibold text-gray-900">Action Required</h4>
+                  <p className="text-sm text-gray-600">This task is waiting for your reply</p>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleReplyClick(task.id, task);
+                    onClose(); // Close modal after clicking reply
+                  }}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    clickedReplyRows.has(task.id)
+                      ? 'bg-green-500 text-white cursor-not-allowed'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                  disabled={clickedReplyRows.has(task.id)}
+                >
+                  {clickedReplyRows.has(task.id) ? 'Reply Clicked ✓' : 'Submit Reply'}
+                </button>
               </div>
             </div>
           )}
@@ -680,131 +623,86 @@ const isRefreshing = loading || isManualRefreshing;
             )}
           </p>
         </div>
-         <button 
-  onClick={refresh}
-  disabled={isRefreshing}
-  className={`p-2 text-white rounded-lg transition-colors flex items-center space-x-2 ${
-    isRefreshing 
-      ? 'bg-gray-400 cursor-not-allowed' 
-      : 'bg-green-600 hover:bg-green-700'
-  }`}
-  title={isRefreshing ? "Refreshing..." : "Refresh"}
->
-  <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-  <span className="text-sm">
-    {isRefreshing ? 'Refreshing...' : 'Refresh'}
-  </span>
-</button>
+        <button 
+          onClick={refresh}
+          disabled={isRefreshing}
+          className={`p-2 text-white rounded-lg transition-colors flex items-center space-x-2 ${
+            isRefreshing 
+              ? 'bg-gray-400 cursor-not-allowed' 
+              : 'bg-green-600 hover:bg-green-700'
+          }`}
+          title={isRefreshing ? "Refreshing..." : "Refresh"}
+        >
+          <RefreshCw className={`w-5 h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <span className="text-sm">
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </span>
+        </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">HT Raised On You</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.raisedOnYou}</p>
-            </div>
-            <UserCheck className="w-8 h-8 text-blue-500" />
-          </div>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">HT Raised By You</p>
-              <p className="text-2xl font-bold text-green-600">{stats.raisedByYou}</p>
-            </div>
-            <UserX className="w-8 h-8 text-green-500" />
-          </div>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Your Reply Pending</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.raisedOnYouReplyPending}</p>
-            </div>
-            <Clock className="w-8 h-8 text-yellow-500" />
-          </div>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">Resolve Pending</p>
-              <p className="text-2xl font-bold text-orange-600">{stats.raisedByYouResolvePending}</p>
-            </div>
-            <Timer className="w-8 h-8 text-orange-500" />
-          </div>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">AVG Delay Replied</p>
-              <p className="text-2xl font-bold text-green-600">{stats.avgDelayReplied}</p>
-            </div>
-            <CheckCircle className="w-8 h-8 text-green-500" />
-          </div>
-        </div>
-        
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">AVG Delay Pending</p>
-              <p className="text-2xl font-bold text-red-600">{stats.avgDelayPending}</p>
-            </div>
-            <TrendingUp className="w-8 h-8 text-red-500" />
-          </div>
-        </div>
-      </div>
 
-      {/* Main Tabs */}
+
+      {/* Tabs and Controls */}
       <div className="bg-white rounded-lg border border-gray-200">
-        <div className="border-b border-gray-200">
-          <div className="flex space-x-8 px-6">
-            <button
-              onClick={() => {
-                setSelectedMainTab('raisedOnYou');
-                setSelectedSubTab('replyPending');
-              }}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                selectedMainTab === 'raisedOnYou'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              HT Raised On You ({stats.raisedOnYou})
-            </button>
-            <button
-              onClick={() => {
-                setSelectedMainTab('raisedByYou');
-                setSelectedSubTab('replyPending');
-              }}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                selectedMainTab === 'raisedByYou'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              HT Raised By You ({stats.raisedByYou})
-            </button>
+        {/* Main Tab Navigation */}
+        <div className="border-b border-gray-200 px-4 pt-4">
+          <div className="flex space-x-8">
+            {[
+              { key: 'raisedOnYou', label: 'HT Raised On You' },
+              { key: 'raisedByYou', label: 'HT Raised By You' }
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => {
+                  setSelectedMainTab(tab.key);
+                  setSelectedSubTab(getSubTabs()[0]?.key || 'replyPending');
+                }}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  selectedMainTab === tab.key
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Sub Tabs */}
-        <div className="border-b border-gray-200">
-          <div className="flex space-x-8 px-6">
-            {subTabs.map((tab) => {
+        {/* Sub Tab Navigation */}
+        <div className="border-b border-gray-200 px-4">
+          <div className="flex space-x-6">
+            {getSubTabs().map(tab => {
+              const tabTasks = getTasksForMainTab();
               let tabCount = 0;
+              
               if (selectedMainTab === 'raisedOnYou') {
-                if (tab.key === 'replyPending') tabCount = stats.raisedOnYouReplyPending;
-                else if (tab.key === 'replyCompleted') tabCount = stats.raisedOnYouReplyCompleted;
+                if (tab.key === 'replyPending') {
+                  tabCount = tabTasks.filter(task => 
+                    !task.replyActual || task.replyActual.trim() === ''
+                  ).length;
+                } else if (tab.key === 'replyCompleted') {
+                  tabCount = tabTasks.filter(task => 
+                    task.replyActual && task.replyActual.trim() !== ''
+                  ).length;
+                }
               } else {
-                if (tab.key === 'replyPending') tabCount = stats.raisedByYouReplyPending;
-                else if (tab.key === 'resolvePending') tabCount = stats.raisedByYouResolvePending;
-                else if (tab.key === 'completed') tabCount = stats.raisedByYouCompleted;
+                if (tab.key === 'replyPending') {
+                  tabCount = tabTasks.filter(task => 
+                    task.replyPlanned && task.replyPlanned.trim() !== '' && 
+                    (!task.replyActual || task.replyActual.trim() === '')
+                  ).length;
+                } else if (tab.key === 'resolvePending') {
+                  tabCount = tabTasks.filter(task => 
+                    task.resolvePlanned && task.resolvePlanned.trim() !== '' && 
+                    (!task.resolveActual || task.resolveActual.trim() === '')
+                  ).length;
+                } else if (tab.key === 'completed') {
+                  tabCount = tabTasks.filter(task => 
+                    task.replyActual && task.replyActual.trim() !== '' &&
+                    task.resolveActual && task.resolveActual.trim() !== ''
+                  ).length;
+                }
               }
 
               return (
@@ -813,7 +711,9 @@ const isRefreshing = loading || isManualRefreshing;
                   onClick={() => setSelectedSubTab(tab.key)}
                   className={`py-3 px-1 border-b-2 font-medium text-sm ${
                     selectedSubTab === tab.key
-                      ? 'border-yellow-500 text-yellow-600'
+                      ? tab.key === 'replyPending' ? 'border-red-500 text-red-600'
+                      : tab.key === 'replyCompleted' ? 'border-green-500 text-green-600'
+                      : 'border-yellow-500 text-yellow-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
@@ -856,14 +756,15 @@ const isRefreshing = loading || isManualRefreshing;
           <div className="divide-y divide-gray-200">
             {filteredTasks.map((task, index) => {
               const taskLink = getTaskLink(task);
+              const rowClassName = getRowClassName(task);
+              
               return (
                 <div 
                   key={index} 
-                  className={`p-4 hover:bg-blue-50 cursor-pointer border-l-4 ${getPriorityColor(task.challengeLevel)}`}
+                  className={rowClassName}
                   onClick={() => {
                     setSelectedTask(task);
-                    setShowModal(true);
-                  }}
+                    setShowModal(true);}}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -873,18 +774,28 @@ const isRefreshing = loading || isManualRefreshing;
                           {task.challengeLevel}
                         </span>
                         <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {selectedMainTab === 'raisedOnYou' ? 'Assigned to You' : 'Raised by You'}
+                          {selectedMainTab === 'raisedOnYou' ? 'Delegated to You' : 'Raised by You'}
                         </span>
+                        
+                        {/* 🎨 COLOR STATUS INDICATOR */}
+                        {task.replyActual && task.replyActual.trim() !== '' && (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            ✓ Replied
+                          </span>
+                        )}
+                        {clickedReplyRows.has(task.id) && (!task.replyActual || task.replyActual.trim() === '') && (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            👆 Reply Clicked
+                          </span>
+                        )}
                       </div>
                       
-                      <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                        {task.challengeIssue}
-                      </p>
+                      <p className="text-gray-600 text-sm mb-2 line-clamp-2">{task.challengeIssue}</p>
                       
                       <div className="flex items-center space-x-4 text-xs text-gray-500">
                         <span className="flex items-center">
                           <User className="w-3 h-3 mr-1" />
-                          {selectedMainTab === 'raisedOnYou' ? `From: ${task.name}` : `To: ${task.issueDelegatedTo}`}
+                          {selectedMainTab === 'raisedOnYou' ? task.name : task.issueDelegatedTo || 'Unassigned'}
                         </span>
                         <span className="flex items-center">
                           <Building2 className="w-3 h-3 mr-1" />
@@ -892,38 +803,56 @@ const isRefreshing = loading || isManualRefreshing;
                         </span>
                         <span className="flex items-center">
                           <Calendar className="w-3 h-3 mr-1" />
-                          {task.timestamp}
+                          {formatDate(task.timestamp)}
                         </span>
-                        {selectedSubTab === 'replyPending' && task.replyPlanned && (
-                          <span className="flex items-center text-yellow-600">
-                            <Clock className="w-3 h-3 mr-1" />
-                            Reply Due: {task.replyPlanned}
-                          </span>
-                        )}
-                        {selectedSubTab === 'resolvePending' && task.resolvePlanned && (
-                          <span className="flex items-center text-purple-600">
-                            <Clock className="w-3 h-3 mr-1" />
-                            Resolve Due: {task.resolvePlanned}
-                          </span>
-                        )}
                       </div>
                     </div>
                     
                     <div className="flex items-center space-x-2 ml-4">
-                      {taskLink && taskLink.trim() !== '' && (
-                        <a 
-                          href={taskLink} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1"
-                          onClick={(e) => e.stopPropagation()}
-                          title={selectedSubTab === 'replyPending' && selectedMainTab === 'raisedOnYou' ? 'Problem Solving Link' : 'Resolve Link'}
+                      {/* 🎨 REPLY BUTTON WITH COLOR MANAGEMENT */}
+                      {selectedMainTab === 'raisedOnYou' && 
+                       task.issueDelegatedTo === currentUser.name && 
+                       (!task.replyActual || task.replyActual.trim() === '') && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReplyClick(task.id, task);
+                          }}
+                          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                            clickedReplyRows.has(task.id)
+                              ? 'bg-blue-500 text-white cursor-not-allowed'
+                              : 'bg-blue-600 text-white hover:bg-blue-700'
+                          }`}
+                          disabled={clickedReplyRows.has(task.id)}
                         >
-                          <ExternalLink className="w-3 h-3" />
-                          <span>{selectedSubTab === 'replyPending' && selectedMainTab === 'raisedOnYou' ? 'Reply' : 'Resolve'}</span>
-                        </a>
+                          {clickedReplyRows.has(task.id) ? 'Reply Clicked ✓' : 'Reply'}
+                        </button>
                       )}
-                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                      
+                      {taskLink && taskLink !== '#' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(taskLink, '_blank');
+                          }}
+                          className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                          title="Open task link"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </button>
+                      )}
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedTask(task);
+                          setShowModal(true);
+                        }}
+                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                        title="View details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -933,9 +862,11 @@ const isRefreshing = loading || isManualRefreshing;
         )}
       </div>
 
-      {/* Task Modal */}
+     
+
+      {/* Task Detail Modal */}
       {showModal && selectedTask && (
-        <TaskModal 
+        <TaskDetailModal 
           task={selectedTask} 
           onClose={() => {
             setShowModal(false);
