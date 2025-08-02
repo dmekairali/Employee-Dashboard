@@ -631,7 +631,7 @@ const isRefreshing = loading || isManualRefreshing;
                                   {taskInfo.clientName}
                                 </span>
                               )}
-                              {getDelay(task) && (
+                              {getDelay(task) && parseFloat(getDelay(task)) > 0 && (
                                 <span className="text-sm bg-red-100 text-red-800 px-2 py-1 rounded-full">
                                   Delayed
                                 </span>
