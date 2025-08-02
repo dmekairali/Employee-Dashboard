@@ -272,6 +272,50 @@ const DelegationTasks = ({ currentUser }) => {
     return task.did || task.delegation_id || task.task_id || task.id || 'N/A';
   };
 
+  // NEW: Function to check if task is created within last 7 days
+  const isNewTask = (task) => {
+    const taskDate = getTaskDate(task);
+    if (!taskDate) return false;
+    
+    try {
+      const today = new Date();
+      let createdDate;
+      
+      // Handle different date formats
+      if (taskDate.includes('/')) {
+        // Handle DD/MM/YYYY or MM/DD/YYYY format
+        const parts = taskDate.split('/');
+        if (parts.length === 3) {
+          const day = parseInt(parts[0]);
+          const month = parseInt(parts[1]);
+          const year = parseInt(parts[2]);
+          
+          // Assume DD/MM/YYYY format (day first)
+          createdDate = new Date(year, month - 1, day);
+        } else {
+          createdDate = new Date(taskDate);
+        }
+      } else {
+        createdDate = new Date(taskDate);
+      }
+      
+      if (isNaN(createdDate.getTime())) {
+        console.log('Invalid date:', taskDate);
+        return false;
+      }
+      
+      const diffTime = today - createdDate;
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      console.log('Task date:', taskDate, 'Parsed as:', createdDate, 'Days ago:', diffDays);
+      
+      return diffDays <= 2 && diffDays >= 0; // Within last 2 days
+    } catch (error) {
+      console.error('Error parsing task date:', taskDate, error);
+      return false;
+    }
+  };
+
   const getTaskStatus = (task) => {
     return task.delegation_status || 'pending';
   };
@@ -558,6 +602,12 @@ const DelegationTasks = ({ currentUser }) => {
                 <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
                   80/20 Score: {get8020Score(task)}
                 </span>
+                {/* NEW: Show attention-seeking "New" badge in modal */}
+                {isNewTask(task) && (
+                  <span className="px-3 py-1 rounded-full text-sm font-bold bg-red-500 text-white border-2 border-red-600 shadow-lg animate-pulse">
+                    🆕 NEW TASK
+                  </span>
+                )}
                 {/* NEW: Show doer response status badge in modal */}
                 {getDoerResponseStatus(task) && (
                   <span className={`px-3 py-1 rounded-full text-sm font-medium border ${getDoerResponseBadge(task).className}`}>
@@ -940,6 +990,12 @@ const DelegationTasks = ({ currentUser }) => {
                       <h4 className="font-medium text-gray-900 break-words flex-1 min-w-0">
                         {getTaskTitle(task)}
                       </h4>
+                      {/* NEW: Add attention-seeking "New" badge next to task title */}
+                      {isNewTask(task) && (
+                        <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-500 text-white border-2 border-red-600 shadow-lg animate-pulse">
+                          🆕 NEW
+                        </span>
+                      )}
                       <div className="flex items-center space-x-2 flex-shrink-0">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityBadge(getTaskPriority(task))}`}>
                           {getShortPriorityLabel(getTaskPriority(task))}
