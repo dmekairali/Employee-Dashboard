@@ -287,15 +287,15 @@ if (currentUser.permissions.canViewFMS) {
   };
 
   // Check if user is management level
-  const isManagementUser = () => {
-    const managementRoles = ['director', 'manager', 'ceo', 'cto', 'admin','ea'];
-    const userRole = (currentUser.role || '').toLowerCase();
-    const userDepartment = (currentUser.department || '').toLowerCase();
-    
-    return managementRoles.some(role => 
-      userRole.includes(role) || userDepartment.includes(role)
-    ) || currentUser.permissions.canViewAdmin;
-  };
+  // Check if user is management level
+const isManagementUser = () => {
+  const managementRoles = ['director', 'ceo', 'cto', 'admin', 'ea'];
+  const userRole = (currentUser.role || '').toLowerCase().trim();
+  const userDepartment = (currentUser.department || '').toLowerCase().trim();
+  
+  return managementRoles.some(role => 
+    userRole === role ;
+};
 
   // Role-based navigation items with counts - Updated to include Checklist
   const getNavigationItems = (permissions) => {
