@@ -27,6 +27,8 @@ const ManagementDashboard = ({ currentUser }) => {
   const [loadingProgress, setLoadingProgress] = useState('Initializing...');
   const [selectedTab, setSelectedTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
+  const [copiedFMS, setCopiedFMS] = useState('');
+
   const [allData, setAllData] = useState({
     delegation: [],
     fms: [],
@@ -675,30 +677,53 @@ const ManagementDashboard = ({ currentUser }) => {
 
     // Copy row data function
     const copyRowData = (fms) => {
-      const rowData = [
-        fms.name,
-        fms.total.toString(),
-        fms.delayCount.toString(),
-        fms.howOldInDays.toString(),
-        Array.from(fms.pcNames).join(', '),
-        Object.entries(fms.doerStats).map(([doer, stats]) => 
-          `${doer}: ${stats.total} total, ${stats.pending} pending`
-        ).join('; ')
-      ].join('\t'); // Tab-separated for easy pasting into spreadsheets
-      
-      navigator.clipboard.writeText(rowData).then(() => {
-        alert('Row data copied to clipboard!');
-      }).catch(() => {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = rowData;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        alert('Row data copied to clipboard!');
-      });
-    };
+  const pcList = Array.from(fms.pcNames).length > 0 
+    ? Array.from(fms.pcNames).join('\n• ') 
+    : 'No PCs assigned';
+  
+  const doerList = Object.entries(fms.doerStats)
+    .map(([doer, stats]) => `• ${doer}
+  Total: ${stats.total} tasks
+  Pending: ${stats.pending} tasks`)
+    .join('\n\n');
+  
+  const message = `📊 FMS ANALYSIS REPORT
+
+🏢 FMS Name: 
+${fms.name}${pinnedFMS.has(fms.name) ? ' ⭐ (Important)' : ''}
+
+📊 TASK SUMMARY:
+• Total Tasks: ${fms.total}
+• Delayed Tasks: ${fms.delayCount}
+• Oldest Delay: ${fms.howOldInDays} days
+
+💻 PC ASSIGNED:
+• ${pcList}
+
+👥 DOER BREAKDOWN:
+${doerList || '• No doers assigned'}
+
+${fms.link ? `🔗 LINK:
+${fms.link}` : ''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━
+📅 Generated: ${new Date().toLocaleString()}`;
+  
+  navigator.clipboard.writeText(message).then(() => {
+    setCopiedFMS(fms.name);
+    setTimeout(() => setCopiedFMS(''), 2000); // Reset after 2 seconds
+  }).catch(() => {
+    // Fallback for older browsers
+    const textArea = document.createElement('textarea');
+    textArea.value = message;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    setCopiedFMS(fms.name);
+    setTimeout(() => setCopiedFMS(''), 2000);
+  });
+};
 
     return (
       <div className="space-y-6">
@@ -867,17 +892,27 @@ const ManagementDashboard = ({ currentUser }) => {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => copyRowData(fms)}
-                          className="p-2 text-gray-400 hover:text-blue-600 transition-colors rounded hover:bg-blue-50"
-                          title="Copy row data to clipboard"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                          </svg>
-                        </button>
-                      </td>
+                             <td className="px-6 py-4">
+  <button
+    onClick={() => copyRowData(fms)}
+    className={`p-2 transition-colors rounded hover:bg-blue-50 ${
+      copiedFMS === fms.name 
+        ? 'text-green-600' 
+        : 'text-gray-400 hover:text-blue-600'
+    }`}
+    title={copiedFMS === fms.name ? 'Copied!' : 'Copy row data to clipboard'}
+  >
+    {copiedFMS === fms.name ? (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+      </svg>
+    ) : (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+      </svg>
+    )}
+  </button>
+</td>
                     </tr>
                   ))
                 )}
