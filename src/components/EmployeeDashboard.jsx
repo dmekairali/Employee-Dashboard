@@ -1,1219 +1,723 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+// Updated EmployeeDashboard.jsx with Notification Counter and Checklist Tab
+import React, { useState, useEffect, useMemo, useContext } from 'react';
+import { ThemeContext } from '../context/ThemeContext';
 import { 
-  DollarSign, 
+  Bell, 
+  Search, 
+  Calendar, 
+  Clock, 
+  TrendingUp, 
   Users, 
-  MessageSquare, 
-  UserPlus, 
-  ArrowUpDown, 
-  ArrowUp, 
-  ArrowDown,
-  ExternalLink,
-  RefreshCw,
-  TrendingUp,
-  BarChart3,
-  Clock,
+  Target, 
+  Award,
+  ChevronRight,
+  MoreHorizontal,
   CheckCircle,
+  AlertCircle,
+  User,
+  Settings,
+  LogOut,
+  Home,
+  BarChart3,
+  FileText,
+  MessageSquare,
+  Plus,
+  Filter,
+  Download,
+  ArrowRight,
+  ExternalLink,
+  UserPlus,
   AlertTriangle,
-  Target,
-  Star,
-  StarOff,
-  Badge,
-  Search,
-  X
+  Ticket,
+  Mail,
+  Phone,
+  Clipboard,
+  Gauge, // Added for Management Dashboard
+  Shield,  // Added for Management Dashboard
+  Sun,
+  Moon,
+  Briefcase,
+  X,
+  CheckSquare // Added for Checklist
 } from 'lucide-react';
+import NotificationsAnnouncements from './NotificationsAnnouncements';
+import DelegationTasks from './DelegationTasks';
+import FMSTasks from './FMSTasks';
+import HTTasks from './HTTasks';
+import PCTasks from './PCTasks';
+import HSHelpSlip from './HSHelpSlip';
+import AdminNotifications from './AdminNotifications';
+import ManagementDashboard from './ManagementDashboard'; // Import the new component
+import ChecklistTasks from './ChecklistTasks'; // Import Checklist component
+import NewTaskNotification from './NewTaskNotification';
+import Overview from './Overview';
+import dataManager from '../utils/DataManager';
+import TimeDisplay from './TimeDisplay';
+import LoginTimer from './LoginTimer';
+import { useNotificationCounter } from '../hooks/useNotificationCounter';
 
-const ManagementDashboard = ({ currentUser }) => {
-  const [loading, setLoading] = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState('Initializing...');
-  const [selectedTab, setSelectedTab] = useState('overview');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [allData, setAllData] = useState({
-    delegation: [],
-    fms: [],
-    ht: [],
-    hs: []
-  });
+const EmployeeDashboard = ({ currentUser, onLogout, loginTime }) => {
+  const [selectedTab, setSelectedTab] = useState('notifications');
+  const [notifications, setNotifications] = useState(6);
+  const [newTaskNotifications, setNewTaskNotifications] = useState([]);
+  const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [showRightSidebar, setShowRightSidebar] = useState(false);
+  const { isDarkMode, toggleTheme } = useContext(ThemeContext);
   
-  // New state for pinned FMS items
-  const [pinnedFMS, setPinnedFMS] = useState(new Set());
-  const [savingPinnedStatus, setSavingPinnedStatus] = useState(false);
+  // Notification counter hook
+  const { unreadTodayCount } = useNotificationCounter(currentUser);
   
-  // Sort configuration
-  const [sortConfig, setSortConfig] = useState({
-    fms: { key: null, direction: 'asc' },
-    delegation: { key: null, direction: 'asc' },
-    helpTicket: { key: null, direction: 'asc' },
-    helpSlip: { key: null, direction: 'asc' }
+  // State for pending counts - Updated to include checklist
+  const [pendingCounts, setPendingCounts] = useState({
+    ht: 0,
+    delegation: 0,
+    fms: 0,
+    pc: 0,
+    hs: 0,
+    checklist: 0 // Added checklist count
   });
 
-  // Load pinned FMS items from Pinned_FMS sheet on component mount
-  useEffect(() => {
-    loadPinnedFMSItems();
-  }, []);
+  // Calculate pending counts based on cached data - Updated to include checklist
+  const calculatePendingCounts = useMemo(() => {
+    return () => {
+      const counts = { ht: 0, delegation: 0, fms: 0, pc: 0, hs: 0, checklist: 0 };
+      
+      try {
+        // Get data from cache
+        const delegationData = dataManager.getDataWithFallback('delegation', currentUser.name);
+        const fmsData = dataManager.getDataWithFallback('fms', currentUser.name);
+        const htData = dataManager.getDataWithFallback('ht', currentUser.name);
+        const pcData = dataManager.getDataWithFallback('pc', currentUser.name);
+        const hsData = dataManager.getDataWithFallback('hs', currentUser.name);
 
-  // Load pinned FMS items from dedicated Pinned_FMS sheet
-  const loadPinnedFMSItems = async () => {
-    try {
-      // Use the EMP login sheet spreadsheet ID (where you added Pinned_FMS sheet)
-      const spreadsheetId = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_ID_EMPLOYEES;
-      const sheetName = 'Pinned_FMS';
-      const params = new URLSearchParams({
-        sheetId: spreadsheetId,
-        sheetName: sheetName,
-        range: 'A:C'
-      });
-      
-      const response = await fetch(`/api/sheets?${params}`);
-      
-      if (response.ok) {
-        const data = await response.json();
-        const rows = data.values || [];
-        
-        // Find user's pinned FMS items
-        // Expected format: [Employee_Name, FMS_Name, Is_Pinned]
-        const userPinnedItems = new Set();
-        
-        rows.forEach((row, index) => {
-          if (index === 0) return; // Skip header row
+        // Count pending delegation tasks
+        if (currentUser.permissions.canViewDelegation) {
+          counts.delegation = delegationData.filter(task => 
+            (task.delegation_status || 'pending').toLowerCase().includes('pending')
+          ).length;
+        }
+
+       
+     // Count pending FMS tasks (exclude CheckList Task and HelpTicket)
+if (currentUser.permissions.canViewFMS) {
+  counts.fms = fmsData.filter(task => {
+    const fmsType = task.fms || '';
+    const isChecklistOrHelpTicket = fmsType.toLowerCase().includes('checklist task') || 
+                                    fmsType.toLowerCase().includes('helpticket');
+    const delay = parseFloat(task.delay || 0);
+    return !isChecklistOrHelpTicket && delay > 0; // Tasks with positive delay are considered pending/overdue
+  }).length;
+}
+
+        // Count pending PC tasks
+        if (currentUser.permissions.canViewPC) {
+          counts.pc = pcData.filter(task => {
+            const delay = parseFloat(task.delay || 0);
+            return delay > 0;
+          }).length;
+        }
+
+        // Count checklist tasks assigned to current user as Doer
+        if (currentUser.permissions.canViewFMS) { // Use same permission as FMS since it's same data source
+          const checklistTasks = fmsData.filter(task => {
+            // Filter for checklist tasks where current user is the Doer
+            const fmsType = task.fms || '';
+            const isChecklistTask = fmsType.toLowerCase().includes('checklist task');
+            const taskDoer = task.doer || task.assignedTo || '';
+            const isUserDoer = taskDoer === currentUser.name;
+            
+            return isChecklistTask && isUserDoer;
+          });
           
-          const [employeeName, fmsName, isPinned] = row;
-          if (employeeName === currentUser.name && isPinned === 'TRUE') {
-            userPinnedItems.add(fmsName);
+          // Count ALL checklist tasks (not just overdue ones)
+          counts.checklist = checklistTasks.length;
+        }
+
+        // Count pending HT tasks (tasks raised on this user awaiting reply)
+        if (currentUser.permissions.canViewHT) {
+          const htRaisedOnYou = htData.filter(task => task.issueDelegatedTo === currentUser.name);
+          counts.ht = htRaisedOnYou.filter(task => 
+            (!task.replyActual || task.replyActual.trim() === '')
+          ).length;
+        }
+
+        // Count pending HS tasks
+        if (currentUser.permissions.canViewHS) {
+          // Check if user is director
+          const isDirector = 
+            (currentUser?.role?.toLowerCase() === 'director') || 
+            (currentUser?.department?.toLowerCase() === 'director');
+          
+          if (isDirector) {
+            // Directors: count all help slips awaiting director's reply
+            counts.hs = hsData.filter(task => 
+              task.helpSlipId && task.helpSlipId.trim() !== '' &&
+              (!task.replyActual || task.replyActual.trim() === '')
+            ).length;
+          } else {
+            // Regular users: count only their own pending tasks
+            const userHSData = hsData.filter(task => 
+              task.name === currentUser.name || task.assignedTo === currentUser.name
+            );
+            counts.hs = userHSData.filter(task => 
+              task.replyPlanned && task.replyPlanned.trim() !== '' &&
+              (!task.replyActual || task.replyActual.trim() === '')
+            ).length;
+          }
+        }
+
+      } catch (error) {
+        console.error('Error calculating pending counts:', error);
+      }
+
+      return counts;
+    };
+  }, [currentUser.name, currentUser.permissions]);
+
+  // Update pending counts every 30 seconds
+  useEffect(() => {
+    const updateCounts = () => {
+      const newCounts = calculatePendingCounts();
+      setPendingCounts(newCounts);
+    };
+
+    // Initial update
+    updateCounts();
+
+    // Set up interval for every 30 seconds
+    const interval = setInterval(updateCounts, 30 * 1000);
+
+    return () => clearInterval(interval);
+  }, [calculatePendingCounts]);
+
+  // Setup new task notifications
+  useEffect(() => {
+    if (currentUser) {
+      const handleNewTasks = (notification) => {
+        setNewTaskNotifications(prev => {
+          const existingIndex = prev.findIndex(n => n.component === notification.component);
+          
+          if (existingIndex >= 0) {
+            const updated = [...prev];
+            updated[existingIndex] = {
+              ...updated[existingIndex],
+              count: updated[existingIndex].count + notification.count,
+              newTasks: [...updated[existingIndex].newTasks, ...notification.newTasks]
+            };
+            return updated;
+          } else {
+            return [...prev, notification];
           }
         });
         
-        setPinnedFMS(userPinnedItems);
-      }
-    } catch (error) {
-      console.error('Error loading pinned FMS items:', error);
-      // If sheet doesn't exist, it's fine - no pinned items yet
-    }
-  };
-
-  // Save/Update pinned FMS items in dedicated Pinned_FMS sheet
-  const savePinnedFMSItems = async (newPinnedSet) => {
-    try {
-      setSavingPinnedStatus(true);
-      
-      // Use the EMP login sheet spreadsheet ID (where you added Pinned_FMS sheet)
-      const spreadsheetId = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_ID_EMPLOYEES;
-      const sheetName = 'Pinned_FMS';
-      const params = new URLSearchParams({
-        sheetId: spreadsheetId,
-        sheetName: sheetName,
-        range: 'A:C'
-      });
-      
-      // Get current Pinned_FMS sheet data
-      const response = await fetch(`/api/sheets?${params}`);
-      
-      let existingRows = [];
-      let hasHeader = false;
-      
-      if (response.ok) {
-        const data = await response.json();
-        existingRows = data.values || [];
-        hasHeader = existingRows.length > 0;
-      }
-      
-      // If no header exists, create one
-      if (!hasHeader) {
-        existingRows = [['Employee_Name', 'FMS_Name', 'Is_Pinned']];
-      }
-      
-      // Remove existing entries for this user
-      const filteredRows = existingRows.filter((row, index) => {
-        if (index === 0) return true; // Keep header
-        return row[0] !== currentUser.name; // Remove user's existing entries
-      });
-      
-      // Add new entries for pinned FMS items
-      Array.from(newPinnedSet).forEach(fmsName => {
-        filteredRows.push([currentUser.name, fmsName, 'TRUE']);
-      });
-      
-      // Update the entire sheet with new data using correct PUT parameters
-      const updateResponse = await fetch('/api/sheets', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          spreadsheetId: spreadsheetId,  // Use EMP spreadsheet ID
-          range: `${sheetName}!A:C`,     // Use full range format
-          values: filteredRows
-        })
-      });
-      
-      if (!updateResponse.ok) {
-        const errorData = await updateResponse.json();
-        throw new Error(`Failed to update pinned FMS: ${errorData.error || updateResponse.statusText}`);
-      }
-      
-      console.log('Successfully saved pinned FMS items to Pinned_FMS sheet in EMP spreadsheet');
-      
-    } catch (error) {
-      console.error('Error saving pinned FMS items:', error);
-      alert('Failed to save pinned status. Please try again.');
-    } finally {
-      setSavingPinnedStatus(false);
-    }
-  };
-
-  // Toggle pinned status for FMS
-  const toggleFMSPin = async (fmsName) => {
-    const newPinnedSet = new Set(pinnedFMS);
-    
-    if (newPinnedSet.has(fmsName)) {
-      newPinnedSet.delete(fmsName);
-    } else {
-      newPinnedSet.add(fmsName);
-    }
-    
-    setPinnedFMS(newPinnedSet);
-    await savePinnedFMSItems(newPinnedSet);
-  };
-
-  // Calculate delay count for FMS
-  const calculateDelayCount = (fmsGroup) => {
-    return fmsGroup.tasks?.filter(task => {
-      const delay = parseFloat(task.delay || 0);
-      return delay > 0;
-    }).length || 0;
-  };
-
-  // Calculate how old in days for FMS - based on oldest 'Planned' date
-  const calculateHowOldInDays = (fmsGroup) => {
-    if (!fmsGroup.tasks || fmsGroup.tasks.length === 0) return 0;
-    
-    const today = new Date();
-    let oldestDays = 0;
-    
-    fmsGroup.tasks.forEach(task => {
-      const plannedDate = task.planned || task.planned_date || task.date_planned;
-      if (plannedDate && plannedDate.trim() !== '') {
-        try {
-          const planned = new Date(plannedDate);
-          if (!isNaN(planned.getTime())) {
-            const diffTime = today - planned;
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            if (diffDays > oldestDays) {
-              oldestDays = diffDays;
-            }
-          }
-        } catch (error) {
-          // Invalid date format, skip
-        }
-      }
-    });
-    
-    return Math.max(0, oldestDays);
-  };
-
-  // Load fresh data from all sources
-  const loadFreshData = useCallback(async () => {
-    setLoading(true);
-    setLoadingProgress('Starting data synchronization...');
-
-    try {
-      const results = {
-        delegation: [],
-        fms: [],
-        ht: [],
-        hs: []
+        setShowNewTaskModal(true);
+        setNotifications(prev => prev + notification.count);
       };
 
-      // Prepare all API calls to run in parallel with correct parameters
-      const apiCalls = [];
+      dataManager.registerNewTaskCallback(currentUser.name, handleNewTasks);
 
-      // Delegation API call
-      if (currentUser.permissions?.canViewDelegation) {
-        const spreadsheetId = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_ID_DELEGATION;
-        const sheetName = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_NAME_DELEGATION;
-        const params = new URLSearchParams({
-          sheetId: spreadsheetId,
-          sheetName: sheetName,
-          range: 'A8:BZ'
-        });
-        apiCalls.push({
-          type: 'delegation',
-          promise: fetch(`/api/sheets?${params}`)
-        });
-      }
-
-      // FMS API call
-      if (currentUser.permissions?.canViewFMS || currentUser.permissions?.canViewPC) {
-        const spreadsheetId = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_ID_FMS;
-        const sheetName = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_NAME_FMS;
-        const params = new URLSearchParams({
-          sheetId: spreadsheetId,
-          sheetName: sheetName,
-          range: 'A1:M'
-        });
-        apiCalls.push({
-          type: 'fms',
-          promise: fetch(`/api/sheets?${params}`)
-        });
-      }
-
-      // HT API call
-      if (currentUser.permissions?.canViewHT) {
-        const spreadsheetId = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_ID_HT;
-        const sheetName = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_NAME_HT;
-        const params = new URLSearchParams({
-          sheetId: spreadsheetId,
-          sheetName: sheetName,
-          range: 'A10:AZ'
-        });
-        apiCalls.push({
-          type: 'ht',
-          promise: fetch(`/api/sheets?${params}`)
-        });
-      }
-
-      // HS API call
-      if (currentUser.permissions?.canViewHS) {
-        const spreadsheetId = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_ID_HS;
-        const sheetName = process.env.REACT_APP_GOOGLE_SHEETS_SPREADSHEET_NAME_HS;
-        const params = new URLSearchParams({
-          sheetId: spreadsheetId,
-          sheetName: sheetName,
-          range: 'A10:AZ'
-        });
-        apiCalls.push({
-          type: 'hs',
-          promise: fetch(`/api/sheets?${params}`)
-        });
-      }
-
-      setLoadingProgress(`Making ${apiCalls.length} API calls simultaneously...`);
-
-      // Execute all API calls in parallel
-      const responses = await Promise.all(apiCalls.map(call => call.promise));
-      
-      setLoadingProgress('Processing responses...');
-
-      // Process each response
-      for (let i = 0; i < responses.length; i++) {
-        const response = responses[i];
-        const callType = apiCalls[i].type;
-        
-        if (response.ok) {
-          const data = await response.json();
-          const rows = data.values || [];
-          
-          if (rows.length > 0) {
-            const headers = rows[0];
-            const processedData = rows.slice(1)
-              .filter(row => row && row.length > 0)
-              .map((row, index) => {
-                const task = {};
-                headers.forEach((header, colIndex) => {
-                  if (header && row[colIndex] !== undefined) {
-                    const key = header.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-                    task[key] = row[colIndex];
-                  }
-                });
-                
-                // Add specific mappings based on type
-                if (callType === 'delegation') {
-                  task.id = index + 1;
-                  task.rowNumber = index + 9;
-                } else if (callType === 'fms') {
-                  task.id = index + 1;
-                  task.rowNumber = index + 2;
-                } else if (callType === 'ht') {
-                  // Direct column mapping for HT - FIXED: Don't override with empty string
-                  task.ticketId = row[0] || '';
-                  task.timestamp = row[1] || '';
-                  task.name = row[2] || '';
-                  task.emailId = row[3] || '';
-                  task.department = row[4] || '';
-                  task.challengeIssue = row[5] || '';
-                  task.challengeLevel = row[6] || '';
-                  // FIXED: Only set if not already set from header mapping and not empty
-                  if (!task.issueDelegatedTo && row[7]) {
-                    task.issueDelegatedTo = row[7];
-                  }
-                  task.replyPlanned = row[18] || '';
-                  task.replyActual = row[19] || '';
-                  task.issueDescription = row[5] || '';
-                  task.id = index + 1;
-                  task.rowNumber = index + 11;
-                } else if (callType === 'hs') {
-                  // Direct column mapping for HS
-                  task.helpSlipId = row[0] || '';
-                  task.timestamp = row[1] || '';
-                  task.name = row[2] || '';
-                  task.emailId = row[3] || '';
-                  task.department = row[4] || '';
-                  task.challengeIssue = row[5] || '';
-                  task.challengeLevel = row[6] || '';
-                  task.replyPlanned = row[18] || '';
-                  task.replyActual = row[19] || '';
-                  task.requestId = row[0] || '';
-                  task.requestDescription = row[5] || '';
-                  task.assignedTo = 'Director'; // For HS, assign all to Director
-                  task.id = index + 1;
-                  task.rowNumber = index + 11;
-                }
-                
-                task.id = index + 1;
-                task.rowNumber = index + 2;
-                return task;
-              });
-            
-            results[callType] = processedData;
-          }
-        } else {
-          console.error(`Failed to fetch ${callType} data:`, response.status);
-        }
-      }
-
-      setAllData(results);
-      setLoadingProgress('All data loaded successfully');
-      
-      console.log('Management Dashboard - Data Load Complete:', {
-        delegation: results.delegation?.length || 0,
-        fms: results.fms?.length || 0,
-        ht: results.ht?.length || 0,
-        hs: results.hs?.length || 0
-      });
-      
-    } catch (error) {
-      console.error('Error loading management data:', error);
-      setLoadingProgress('Error loading data: ' + error.message);
-    } finally {
-      setTimeout(() => {
-        setLoading(false);
-      }, 500);
+      return () => {
+        dataManager.unregisterNewTaskCallback(currentUser.name);
+      };
     }
-  }, [currentUser.permissions]);
+  }, [currentUser]);
 
-  // Load data on component mount
+  // Cleanup on logout
   useEffect(() => {
-    loadFreshData();
-  }, [loadFreshData]);
-
-  // Manual refresh function
-  const handleRefresh = () => {
-    loadFreshData();
-  };
-
-  // Executive Summary Metrics
-  const executiveSummary = useMemo(() => {
-    const totalTasks = Object.values(allData).reduce((sum, tasks) => sum + tasks.length, 0);
-    
-    const pendingDelegation = allData.delegation.filter(task => 
-      (task.delegation_status || 'pending').toLowerCase().includes('pending')
-    ).length;
-
-    const pendingFMS = allData.fms.filter(task => 
-      task.delay && task.delay.trim() !== ''
-    ).length;
-
-    const pendingHT = allData.ht.filter(task => 
-      (!task.replyActual || task.replyActual.trim() === '')
-    ).length;
-
-    const pendingHS = allData.hs.filter(task => 
-      task.replyPlanned && task.replyPlanned.trim() !== '' &&
-      (!task.replyActual || task.replyActual.trim() === '')
-    ).length;
-
-    const totalPending = pendingDelegation + pendingFMS + pendingHT + pendingHS;
-    const pendingRate = totalTasks > 0 ? ((totalPending / totalTasks) * 100).toFixed(1) : 0;
-
-    const activeWorkers = new Set([
-      ...allData.delegation.map(task => task.doer_name || task.doer).filter(Boolean),
-      ...allData.fms.map(task => task.doer).filter(Boolean),
-      ...allData.ht.map(task => task.issueDelegatedTo).filter(Boolean),
-      ...allData.hs.map(task => task.assignedTo).filter(Boolean)
-    ]).size;
-
-    const activePCs = new Set(allData.fms.map(task => task.pc || task.pcdeo).filter(Boolean)).size;
-
-    return {
-      totalTasks,
-      totalPending,
-      pendingRate: parseFloat(pendingRate),
-      activeWorkers,
-      activePCs,
-      pendingDelegation,
-      pendingFMS,
-      pendingHT,
-      pendingHS
+    return () => {
+      if (currentUser) {
+        dataManager.stopAutoRefresh('delegation', currentUser.name);
+        dataManager.stopAutoRefresh('fms', currentUser.name);
+        dataManager.stopAutoRefresh('ht', currentUser.name);
+        dataManager.stopAutoRefresh('pc', currentUser.name);
+        dataManager.stopAutoRefresh('hs', currentUser.name);
+      }
     };
-  }, [allData]);
+  }, [currentUser]);
 
-  // Get FMS links for header
-  const getFMSLinks = useMemo(() => {
-    const fmsLinks = {};
-    allData.fms.forEach(task => {
-      const fmsType = task.fms || 'Unknown';
-      if (!fmsLinks[fmsType] && task.link && task.link.trim() !== '') {
-        fmsLinks[fmsType] = task.link;
-      }
-    });
-    return fmsLinks;
-  }, [allData.fms]);
-
-  // Sorting functionality
-  const handleSort = (table, key) => {
-    setSortConfig(prev => ({
-      ...prev,
-      [table]: {
-        key,
-        direction: prev[table].key === key && prev[table].direction === 'asc' ? 'desc' : 'asc'
-      }
-    }));
+  const handleCloseNewTaskModal = () => {
+    setShowNewTaskModal(false);
   };
 
-  const getSortedData = (data, table) => {
-    if (!sortConfig[table].key) return data;
-
-    return [...data].sort((a, b) => {
-      const aVal = a[sortConfig[table].key] || '';
-      const bVal = b[sortConfig[table].key] || '';
-      
-      if (!isNaN(aVal) && !isNaN(bVal)) {
-        return sortConfig[table].direction === 'asc' 
-          ? Number(aVal) - Number(bVal)
-          : Number(bVal) - Number(aVal);
-      }
-      
-      const comparison = aVal.toString().localeCompare(bVal.toString());
-      return sortConfig[table].direction === 'asc' ? comparison : -comparison;
-    });
+  const handleMarkAllRead = () => {
+    setNewTaskNotifications([]);
+    setNotifications(6);
+    setShowNewTaskModal(false);
   };
 
-  const SortButton = ({ table, column, children }) => (
-    <button
-      onClick={() => handleSort(table, column)}
-      className="flex items-center space-x-1 hover:text-blue-600 transition-colors"
-    >
-      <span>{children}</span>
-      {sortConfig[table].key === column ? (
-        sortConfig[table].direction === 'asc' ? 
-        <ArrowUp className="w-4 h-4" /> : 
-        <ArrowDown className="w-4 h-4" />
-      ) : (
-        <ArrowUpDown className="w-4 h-4 opacity-50" />
-      )}
-    </button>
-  );
+  const handleTabChange = (tabId) => {
+    setSelectedTab(tabId);
+  };
 
-  // Tab configuration
-  const tabs = [
-    { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'fms', label: 'FMS', icon: DollarSign },
-    { id: 'delegation', label: 'Delegation', icon: Users },
-    { id: 'help-ticket', label: 'Help Ticket', icon: MessageSquare },
-    { id: 'help-slip', label: 'Help Slip', icon: UserPlus }
-  ];
+  // Component to render count badge (original styling preserved)
+  const CountBadge = ({ count, type = 'default' }) => {
+    if (!count || count === 0) return null;
 
-  // Loading view
-  if (loading) {
+    const badgeStyles = {
+      default: 'bg-blue-500 text-white',
+      urgent: 'bg-red-500 text-white',
+      warning: 'bg-orange-500 text-white',
+      success: 'bg-green-500 text-white'
+    };
+
+    const getBadgeType = (count) => {
+      if (count > 10) return 'urgent';
+      if (count > 5) return 'warning';
+      return 'default';
+    };
+
+    const badgeType = type === 'default' ? getBadgeType(count) : type;
+
     return (
-      <div className="space-y-6">
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">
-                Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, {currentUser.name.split(' ')[0]}!
-              </h1>
-              <p className="text-blue-100">Management Command Center</p>
-            </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold">Loading...</div>
-              <div className="text-blue-200">Synchronizing data</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">Loading Management Data...</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {currentUser.permissions.canViewDelegation && (
-                <div className="p-4 rounded-lg border-2 border-blue-500 bg-blue-50 transition-all">
-                  <div className="flex items-center space-x-3">
-                    <Users className="w-5 h-5 text-blue-600 animate-pulse" />
-                    <div>
-                      <p className="font-medium text-gray-900">Delegation</p>
-                      <p className="text-sm text-gray-600">Loading...</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {currentUser.permissions.canViewFMS && (
-                <div className="p-4 rounded-lg border-2 border-blue-500 bg-blue-50 transition-all">
-                  <div className="flex items-center space-x-3">
-                    <DollarSign className="w-5 h-5 text-blue-600 animate-pulse" />
-                    <div>
-                      <p className="font-medium text-gray-900">FMS</p>
-                      <p className="text-sm text-gray-600">Loading...</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {currentUser.permissions.canViewHT && (
-                <div className="p-4 rounded-lg border-2 border-blue-500 bg-blue-50 transition-all">
-                  <div className="flex items-center space-x-3">
-                    <MessageSquare className="w-5 h-5 text-blue-600 animate-pulse" />
-                    <div>
-                      <p className="font-medium text-gray-900">Help Tickets</p>
-                      <p className="text-sm text-gray-600">Loading...</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {currentUser.permissions.canViewHS && (
-                <div className="p-4 rounded-lg border-2 border-blue-500 bg-blue-50 transition-all">
-                  <div className="flex items-center space-x-3">
-                    <UserPlus className="w-5 h-5 text-blue-600 animate-pulse" />
-                    <div>
-                      <p className="font-medium text-gray-900">Help Slips</p>
-                      <p className="text-sm text-gray-600">Loading...</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="bg-gray-50 rounded-lg p-4 max-h-48 overflow-y-auto">
-              <h5 className="font-medium text-gray-900 mb-2">Loading Log:</h5>
-              <div className="space-y-1 text-sm">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-gray-500">
-                    {new Date().toLocaleTimeString()}
-                  </span>
-                  <span className="text-blue-600">
-                    {loadingProgress}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      <span className={`inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none rounded-full ${badgeStyles[badgeType]} ml-auto animate-pulse`}>
+        {count > 99 ? '99+' : count}
+      </span>
     );
-  }
+  };
 
-  // Enhanced FMS Analysis with sorting and new columns
-  const renderFMSAnalysis = () => {
-    // Group FMS by name and collect all tasks for each FMS
-    const fmsGroups = {};
-    allData.fms.forEach(task => {
-      const fmsName = task.fms || 'Unknown';
-      if (!fmsGroups[fmsName]) {
-        fmsGroups[fmsName] = {
-          name: fmsName,
-          total: 0,
-          pcs: new Set(),
-          pcNames: new Set(),
-          doers: {},
-          tasks: [],
-          link: getFMSLinks[fmsName] || null
-        };
+  // Special badge for notifications only
+  const NotificationBadge = ({ count }) => {
+    if (!count || count === 0) return null;
+
+    return (
+      <span className="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none rounded-full bg-red-500 text-white animate-pulse ml-auto">
+        {count > 99 ? '99+' : count}
+      </span>
+    );
+  };
+
+  // Check if user is management level
+  const isManagementUser = () => {
+    const managementRoles = ['director', 'manager', 'ceo', 'cto', 'admin','ea'];
+    const userRole = (currentUser.role || '').toLowerCase();
+    const userDepartment = (currentUser.department || '').toLowerCase();
+    
+    return managementRoles.some(role => 
+      userRole.includes(role) || userDepartment.includes(role)
+    ) || currentUser.permissions.canViewAdmin;
+  };
+
+  // Role-based navigation items with counts - Updated to include Checklist
+  const getNavigationItems = (permissions) => {
+    const allItems = [
+      { 
+        id: 'notifications', 
+        label: 'Notifications', 
+        icon: Bell, 
+        permission: 'canViewOverview',
+        count: unreadTodayCount,
+        isNotification: true
+      },
+      { 
+        id: 'overview', 
+        label: 'Overview', 
+        icon: Home, 
+        permission: 'canViewOverview',
+        count: 0
+      },
+      { 
+        id: 'ht-tasks', 
+        label: 'HT Tasks', 
+        icon: UserPlus, 
+        permission: 'canViewHT',
+        count: pendingCounts.ht
+      },
+      { 
+        id: 'delegation', 
+        label: 'Delegation', 
+        icon: Users, 
+        permission: 'canViewDelegation',
+        count: pendingCounts.delegation
+      },
+      { 
+        id: 'fms', 
+        label: 'FMS', 
+        icon: FileText, 
+        permission: 'canViewFMS',
+        count: pendingCounts.fms
+      },
+      { 
+        id: 'pc', 
+        label: 'PC Dashboard', 
+        icon: Clipboard, 
+        permission: 'canViewPC',
+        count: pendingCounts.pc
+      },
+      // Add Checklist tab here
+      { 
+        id: 'checklist', 
+        label: 'Checklist', 
+        icon: CheckSquare, 
+        permission: 'canViewFMS', // Use same permission as FMS since it's same data source
+        count: pendingCounts.checklist
+      },
+      { 
+        id: 'hs', 
+        label: 'HelpSlip', 
+        icon: UserPlus, 
+        permission: 'canViewHS',
+        count: pendingCounts.hs
+      },
+      { 
+        id: 'analytics', 
+        label: 'Analytics', 
+        icon: BarChart3, 
+        permission: 'canViewAnalytics',
+        count: 0
+      },
+      // Management Dashboard - Only show for management users
+      ...(isManagementUser() ? [{
+        id: 'management', 
+        label: 'Management', 
+        icon: Gauge, 
+        permission: 'canViewAdmin',
+        count: 0,
+        special: true
+      }] : []),
+      { 
+        id: 'admin', 
+        label: 'Admin', 
+        icon: Settings, 
+        permission: 'canViewAdmin',
+        count: 0
+      },
+    ];
+
+    // Filter items based on permissions, but always show management for management users
+    return allItems.filter(item => {
+      if (item.id === 'management') {
+        return isManagementUser();
       }
-      
-      fmsGroups[fmsName].total++;
-      fmsGroups[fmsName].tasks.push(task);
-      
-      if (task.pc || task.pcdeo) {
-        fmsGroups[fmsName].pcs.add(task.pc || task.pcdeo);
-        fmsGroups[fmsName].pcNames.add(task.pc || task.pcdeo);
-      }
-      
-      const doer = task.doer || 'Unknown';
-      if (!fmsGroups[fmsName].doers[doer]) {
-        fmsGroups[fmsName].doers[doer] = 0;
-      }
-      fmsGroups[fmsName].doers[doer]++;
+      return permissions[item.permission];
     });
+  };
 
-    // Add calculated fields for each FMS group
-    Object.values(fmsGroups).forEach(group => {
-      group.delayCount = calculateDelayCount(group);
-      group.howOldInDays = calculateHowOldInDays(group);
-      group.important = pinnedFMS.has(group.name);
-    });
+  const navigationItems = getNavigationItems(currentUser.permissions);
 
-    // Filter FMS data based on search term
-    let filteredFMSGroups = Object.values(fmsGroups);
-    if (searchTerm) {
-      filteredFMSGroups = filteredFMSGroups.filter(group => 
-        group.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        Array.from(group.pcNames).some(pcName => 
-          pcName.toLowerCase().includes(searchTerm.toLowerCase())
-        ) ||
-        Object.keys(group.doers).some(doer => 
-          doer.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      );
+  // Ensure selected tab is valid for current user
+  useEffect(() => {
+    const validTabs = navigationItems.map(item => item.id);
+    if (!validTabs.includes(selectedTab)) {
+      setSelectedTab('overview');
     }
+  }, [currentUser, navigationItems, selectedTab]);
 
-    // Sort FMS data - pinned items first, then by selected sort
-    const pinnedGroups = filteredFMSGroups.filter(group => pinnedFMS.has(group.name));
-    const unpinnedGroups = filteredFMSGroups.filter(group => !pinnedFMS.has(group.name));
-    
-    const sortedPinned = getSortedData(pinnedGroups, 'fms');
-    const sortedUnpinned = getSortedData(unpinnedGroups, 'fms');
-    const sortedFMSData = [...sortedPinned, ...sortedUnpinned];
-
-    return (
-      <div className="space-y-6">
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">FMS Analysis</h3>
-              <div className="flex items-center space-x-4">
-                {/* Search Box */}
-                <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search FMS, PC, or Doer..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-64"
-                  />
-                  {searchTerm && (
-                    <button
-                      onClick={() => setSearchTerm('')}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                
-                {pinnedFMS.size > 0 && (
-                  <span className="inline-flex items-center px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">
-                    <Star className="w-3 h-3 mr-1" />
-                    {pinnedFMS.size} Pinned
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Pin
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <SortButton table="fms" column="name">FMS Name</SortButton>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <SortButton table="fms" column="total">Total Tasks</SortButton>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <SortButton table="fms" column="delayCount">Delay Count</SortButton>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <SortButton table="fms" column="howOldInDays">How Old (Days)</SortButton>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    PC Names
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Top Doers
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {sortedFMSData.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
-                      {searchTerm ? `No FMS found matching "${searchTerm}"` : 'No FMS data available'}
-                    </td>
-                  </tr>
-                ) : (
-                  sortedFMSData.map((fms, index) => (
-                    <tr key={index} className={`hover:bg-gray-50 ${pinnedFMS.has(fms.name) ? 'bg-yellow-50 border-l-4 border-l-yellow-400' : ''}`}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => toggleFMSPin(fms.name)}
-                          disabled={savingPinnedStatus}
-                          className={`p-1 rounded transition-colors ${
-                            pinnedFMS.has(fms.name) 
-                              ? 'text-yellow-600 hover:text-yellow-700' 
-                              : 'text-gray-400 hover:text-yellow-600'
-                          } ${savingPinnedStatus ? 'opacity-50 cursor-not-allowed' : ''}`}
-                          title={pinnedFMS.has(fms.name) ? 'Unpin FMS' : 'Pin as Important'}
-                        >
-                          {pinnedFMS.has(fms.name) ? (
-                            <Star className="w-5 h-5 fill-current" />
-                          ) : (
-                            <StarOff className="w-5 h-5" />
-                          )}
-                        </button>
-                      </td><td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <span className="text-sm font-medium text-gray-900">{fms.name}</span>
-                          {pinnedFMS.has(fms.name) && (
-                            <span className="ml-2 inline-flex items-center px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">
-                              <Badge className="w-3 h-3 mr-1" />
-                              Important
-                            </span>
-                          )}
-                          {fms.link && (
-                            <a 
-                              href={fms.link} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="ml-2 text-blue-600 hover:text-blue-800"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </a>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-gray-900">{fms.total}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          fms.delayCount > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                        }`}>
-                          {fms.delayCount}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          fms.howOldInDays > 5 ? 'bg-red-100 text-red-800' : 
-                          fms.howOldInDays > 2 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
-                        }`}>
-                          {fms.howOldInDays}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="space-y-1">
-                          {Array.from(fms.pcNames).slice(0, 3).map((pcName, pcIndex) => (
-                            <div key={pcIndex} className="text-sm text-gray-600">
-                              {pcName}
-                            </div>
-                          ))}
-                          {fms.pcNames.size > 3 && (
-                            <div className="text-xs text-gray-500">
-                              +{fms.pcNames.size - 3} more
-                            </div>
-                          )}
-                          {fms.pcNames.size === 0 && (
-                            <div className="text-xs text-gray-400">No PCs assigned</div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="space-y-1">
-                          {Object.entries(fms.doers).slice(0, 3).map(([doer, count]) => (
-                            <div key={doer} className="text-sm text-gray-600">
-                              {doer}: {count}
-                            </div>
-                          ))}
-                          {Object.keys(fms.doers).length > 3 && (
-                            <div className="text-xs text-gray-500">
-                              +{Object.keys(fms.doers).length - 3} more
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    );
+  const getRoleColor = (role) => {
+    const colors = {
+      'Operation': 'from-blue-500 to-blue-600',
+      'PC': 'from-green-500 to-green-600',
+      'Sales Agent': 'from-purple-500 to-purple-600',
+      'Medical Representative': 'from-red-500 to-red-600',
+      'HR': 'from-yellow-500 to-yellow-600',
+      'Account': 'from-indigo-500 to-indigo-600',
+      'Director': 'from-red-600 to-purple-600',
+      'Manager': 'from-purple-600 to-indigo-600',
+      'CEO': 'from-gold-500 to-yellow-600',
+      'Admin': 'from-gray-600 to-gray-700'
+    };
+    return colors[role] || 'from-gray-500 to-gray-600';
   };
 
-  // Render Delegation Analysis (group by doer name, remove "Delegated By")
-  const renderDelegationAnalysis = () => {
-    const delegationGroups = {};
-    
-    allData.delegation.forEach(task => {
-      const doer = task.doer_name || task.doer || 'Unknown';
-      
-      if (!delegationGroups[doer]) {
-        delegationGroups[doer] = {
-          name: doer,
-          total: 0,
-          pending: 0,
-          completed: 0,
-          delegatedBy: new Set()
-        };
-      }
-      
-      delegationGroups[doer].total++;
-      const delegatedBy = task.delegated_by || task.name || 'Unknown';
-      delegationGroups[doer].delegatedBy.add(delegatedBy);
-      
-      const status = (task.delegation_status || 'pending').toLowerCase();
-      if (status.includes('pending') || status.includes('progress')) {
-        delegationGroups[doer].pending++;
-      } else if (status.includes('complete') || status.includes('done')) {
-        delegationGroups[doer].completed++;
-      }
-    });
-
-    const sortedDelegationGroups = getSortedData(Object.values(delegationGroups), 'delegation');
-
-    return (
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Delegation Analysis</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  <SortButton table="delegation" column="name">Assigned To</SortButton>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  <SortButton table="delegation" column="total">Total Tasks</SortButton>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  <SortButton table="delegation" column="pending">Pending</SortButton>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  <SortButton table="delegation" column="completed">Completed</SortButton>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Efficiency</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {sortedDelegationGroups.map((group, index) => {
-                const efficiency = group.total > 0 ? 
-                  ((group.completed / group.total) * 100).toFixed(1) : '0.0';
-                
-                return (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium text-gray-900">{group.name}</td>
-                    <td className="px-6 py-4 text-gray-900">{group.total}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        group.pending > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                      }`}>
-                        {group.pending}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-900">{group.completed}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        parseFloat(efficiency) > 80 ? 'bg-green-100 text-green-800' :
-                        parseFloat(efficiency) > 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {efficiency}%
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  };
-
-  // Render Help Ticket Analysis (keep existing grouped structure, add sorting)
-  const renderHelpTicketAnalysis = () => {
-    const htGroups = {};
-    
-    allData.ht.forEach(task => {
-      const assignedTo = task.issueDelegatedTo || 'Unknown';
-      
-      if (!htGroups[assignedTo]) {
-        htGroups[assignedTo] = {
-          name: assignedTo,
-          total: 0,
-          pending: 0,
-          replied: 0,
-          highPriority: 0
-        };
-      }
-      
-      htGroups[assignedTo].total++;
-      
-      if (!task.replyActual || task.replyActual.trim() === '') {
-        htGroups[assignedTo].pending++;
-      } else {
-        htGroups[assignedTo].replied++;
-      }
-      
-      if (task.challengeLevel?.toUpperCase() === 'HIGH') {
-        htGroups[assignedTo].highPriority++;
-      }
-    });
-
-    const sortedHTGroups = getSortedData(Object.values(htGroups), 'helpTicket');
-
-    return (
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Help Ticket Analysis</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  <SortButton table="helpTicket" column="name">Assigned To</SortButton>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  <SortButton table="helpTicket" column="total">Total Tickets</SortButton>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  <SortButton table="helpTicket" column="pending">Pending Reply</SortButton>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  <SortButton table="helpTicket" column="replied">Replied</SortButton>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  <SortButton table="helpTicket" column="highPriority">High Priority</SortButton>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Response Rate</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {sortedHTGroups.map((group, index) => {
-                const responseRate = group.total > 0 ? ((group.replied / group.total) * 100).toFixed(1) : '0.0';
-                
-                return (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium text-gray-900">{group.name}</td>
-                    <td className="px-6 py-4 text-gray-900">{group.total}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        group.pending > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                      }`}>
-                        {group.pending}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-900">{group.replied}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        group.highPriority > 0 ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {group.highPriority}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        parseFloat(responseRate) > 80 ? 'bg-green-100 text-green-800' :
-                        parseFloat(responseRate) > 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {responseRate}%
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  };
-
-  // Render Help Slip Analysis (keep existing grouped structure, add sorting)
-  const renderHelpSlipAnalysis = () => {
-    const hsGroups = {};
-    
-    allData.hs.forEach(task => {
-      const assignedTo = task.assignedTo || 'Director'; // All assigned to Director as requested
-      
-      if (!hsGroups[assignedTo]) {
-        hsGroups[assignedTo] = {
-          name: assignedTo,
-          total: 0,
-          pending: 0,
-          replied: 0,
-          raisedBy: new Set()
-        };
-      }
-      
-      hsGroups[assignedTo].total++;
-      hsGroups[assignedTo].raisedBy.add(task.name || 'Unknown');
-      
-      if (task.replyPlanned && task.replyPlanned.trim() !== '' &&
-          (!task.replyActual || task.replyActual.trim() === '')) {
-        hsGroups[assignedTo].pending++;
-      } else if (task.replyActual && task.replyActual.trim() !== '') {
-        hsGroups[assignedTo].replied++;
-      }
-    });
-
-    const sortedHSGroups = getSortedData(Object.values(hsGroups), 'helpSlip');
-
-    return (
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Help Slip Analysis</h3>
-          <p className="text-sm text-gray-600">All help slips are assigned to Director for management</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  <SortButton table="helpSlip" column="name">Assigned To</SortButton>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  <SortButton table="helpSlip" column="total">Total Slips</SortButton>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  <SortButton table="helpSlip" column="pending">Pending Reply</SortButton>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  <SortButton table="helpSlip" column="replied">Replied</SortButton>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Unique Requesters</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Response Rate</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {sortedHSGroups.map((group, index) => {
-                const responseRate = group.total > 0 ?
-                  ((group.replied / group.total) * 100).toFixed(1) : '0.0';
-                
-                return (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium text-gray-900">{group.name}</td>
-                    <td className="px-6 py-4 text-gray-900">{group.total}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        group.pending > 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                      }`}>
-                        {group.pending}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-900">{group.replied}</td>
-                    <td className="px-6 py-4 text-gray-900">{group.raisedBy.size}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        parseFloat(responseRate) > 80 ? 'bg-green-100 text-green-800' :
-                        parseFloat(responseRate) > 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {responseRate}%
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
+  // Get page title based on selected tab - Updated to include Checklist
+  const getPageTitle = () => {
+    switch (selectedTab) {
+      case 'notifications': return 'Notifications & Announcements';
+      case 'overview': return 'Dashboard Overview';
+      case 'ht-tasks': return 'Help Tickets';
+      case 'delegation': return 'Delegation Tasks';
+      case 'fms': return 'FMS Tasks';
+      case 'pc': return 'PC Dashboard';
+      case 'checklist': return 'Checklist Tasks'; // Added checklist title
+      case 'hs': return 'Help Slips';
+      case 'analytics': return 'Analytics';
+      case 'management': return 'Management Command Center';
+      case 'admin': return 'Admin Panel';
+      default: return 'Dashboard';
+    }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-xl p-6 text-white">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">
-              Good {new Date().getHours() < 12 ? 'Morning' : new Date().getHours() < 18 ? 'Afternoon' : 'Evening'}, {currentUser.name.split(' ')[0]}!
-            </h1>
-            <p className="text-blue-100">Management Command Center</p>
+    <div className="min-h-screen bg-background">
+      {/* Sidebar */}
+      <div className="fixed left-0 top-0 h-full w-64 bg-sidebar-background border-r border-border-color z-40">
+        <div className="p-6">
+          <div className="flex items-center space-x-3">
+            <div className={`w-10 h-10 bg-gradient-to-br ${getRoleColor(currentUser.role)} rounded-lg flex items-center justify-center`}>
+              <span className="text-white font-bold text-lg">K</span>
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">Kairali</h1>
+              <p className="text-sm text-sidebar-foreground">TaskApp Dashboard</p>
+            </div>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold">{executiveSummary.totalTasks}</div>
-            <div className="text-blue-200">Total Tasks</div>
+        </div>
+
+        <nav className="px-4 space-y-2 flex-1 overflow-y-auto">
+          {navigationItems.map((item) => (
             <button
-              onClick={handleRefresh}
-              className="mt-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors flex items-center space-x-2"
+              key={item.id}
+              onClick={() => setSelectedTab(item.id)}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left transition-all duration-200 group ${
+                selectedTab === item.id 
+                  ? item.special 
+                    ? 'bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 border-r-2 border-purple-600' 
+                    : 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
+                  : 'text-sidebar-foreground hover:bg-gray-50 hover:text-gray-900'
+              } ${item.special ? 'font-semibold' : ''}`}
             >
-              <RefreshCw className="w-4 h-4" />
-              <span>Refresh</span>
+              <div className="flex items-center space-x-3">
+                <item.icon className={`w-5 h-5 ${item.special ? 'text-purple-600' : ''}`} />
+                <span className="font-medium text-foreground">{item.label}</span>
+                {item.special && (
+                  <Shield className="w-4 h-4 text-purple-500" />
+                )}
+              </div>
+              
+              {/* Count Badge - Use special notification badge for notifications */}
+              {item.isNotification ? (
+                <NotificationBadge count={item.count} />
+              ) : (
+                <CountBadge count={item.count} />
+              )}
+            </button>
+          ))}
+        </nav>
+
+        {/* User Profile Section */}
+        <div className="p-4 border-t border-border-color">
+          {/* Cache Status Indicator */}
+          <div className="mb-3 px-4 py-2 bg-background rounded-lg">
+            <div className="flex items-center justify-between text-xs text-sidebar-foreground">
+              <span>Cache Status</span>
+              <div className="flex items-center space-x-1">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span>Active</span>
+              </div>
+            </div>
+            <div className="text-xs text-sidebar-foreground mt-1">
+              Last update: {new Date().toLocaleTimeString()}
+            </div>
+            <LoginTimer loginTime={loginTime} />
+          </div>
+
+          <div className="flex items-center space-x-3 px-4 py-3 rounded-lg hover:bg-background cursor-pointer">
+            <div className={`w-8 h-8 bg-gradient-to-br ${getRoleColor(currentUser.role)} rounded-full flex items-center justify-center`}>
+              <span className="text-white font-semibold text-sm">
+                {currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+              </span>
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-foreground">{currentUser.name}</p>
+              <p className="text-sm text-sidebar-foreground">
+                {currentUser.role}
+                {isManagementUser() && (
+                  <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-semibold">
+                    MGMT
+                  </span>
+                )}
+              </p>
+            </div>
+            <button 
+              onClick={onLogout}
+              className="p-1 text-sidebar-foreground hover:text-red-500 transition-colors"
+              title="Logout"
+            >
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
-            {tabs.map(tab => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setSelectedTab(tab.id)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 transition-colors ${
-                    selectedTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
+      {/* Main Content */}
+      <div className="ml-64">
+        {/* Header */}
+        <header className="bg-card-background border-b border-border-color px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-foreground flex items-center">
+                {selectedTab === 'management' && (
+                  <Gauge className="w-6 h-6 mr-3 text-purple-600" />
+                )}
+                {selectedTab === 'checklist' && (
+                  <CheckSquare className="w-6 h-6 mr-3 text-green-600" />
+                )}
+                {getPageTitle()}
+                {selectedTab === 'management' && (
+                  <span className="ml-3 px-3 py-1 bg-purple-100 text-purple-700 text-sm rounded-full font-semibold">
+                    EXECUTIVE
+                  </span>
+                )}
+              </h2>
+              <p className="text-sidebar-foreground">
+                {selectedTab === 'overview' 
+                  ? <TimeDisplay />
+                  : selectedTab === 'management'
+                  ? 'Real-time organizational insights and performance analytics'
+                  : selectedTab === 'checklist'
+                  ? `Checklist tasks assigned to ${currentUser.name} as Doer`
+                  : `${currentUser.role} • ${currentUser.department}`
+                }
+              </p>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sidebar-foreground w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder={selectedTab === 'management' ? 
+                    "Search organizational data..." : 
+                    selectedTab === 'checklist' ?
+                    "Search checklist tasks..." :
+                    "Search tickets, tasks..."
+                  }
+                  className="pl-10 pr-4 py-2 border border-border-color rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-card-background text-foreground w-80"
+                />
+              </div>
+              <button
+                onClick={() => setShowRightSidebar(true)}
+                className="relative p-2 text-sidebar-foreground hover:text-foreground transition-colors"
+              >
+                <User className="w-5 h-5" />
+              </button>
+              <button
+                onClick={toggleTheme}
+                className="p-2 text-sidebar-foreground hover:text-foreground transition-colors"
+                title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              >
+                {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+            </div>
+          </div>
+        </header>
 
-        {/* Content */}
-        <div className="p-6">
+        {/* Dashboard Content */}
+        <main className="p-8">
+          {selectedTab === 'notifications' && (
+            <NotificationsAnnouncements currentUser={currentUser} />
+          )}
+
           {selectedTab === 'overview' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
-                <div className="flex items-center justify-between mb-4">
-                  <Users className="w-8 h-8 text-blue-600" />
-                  <span className="text-2xl font-bold text-blue-900">{executiveSummary.pendingDelegation}</span>
-                </div>
-                <h3 className="font-semibold text-blue-900">Delegation Pending</h3>
-                <p className="text-sm text-blue-700">Tasks awaiting completion</p>
-              </div>
+            <Overview currentUser={currentUser} onTabChange={handleTabChange} />
+          )}
 
-              <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border border-green-200">
-                <div className="flex items-center justify-between mb-4">
-                  <DollarSign className="w-8 h-8 text-green-600" />
-                  <span className="text-2xl font-bold text-green-900">{executiveSummary.pendingFMS}</span>
-                </div>
-                <h3 className="font-semibold text-green-900">FMS Delayed</h3>
-                <p className="text-sm text-green-700">Tasks with delays</p>
-              </div>
+          {selectedTab === 'delegation' && currentUser.permissions.canViewDelegation && (
+            <DelegationTasks currentUser={currentUser} />
+          )}
 
-              <div className="bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-lg border border-red-200">
-                <div className="flex items-center justify-between mb-4">
-                  <MessageSquare className="w-8 h-8 text-red-600" />
-                  <span className="text-2xl font-bold text-red-900">{executiveSummary.pendingHT}</span>
-                </div>
-                <h3 className="font-semibold text-red-900">Help Tickets Open</h3>
-                <p className="text-sm text-red-700">Awaiting resolution</p>
-              </div>
+          {selectedTab === 'ht-tasks' && currentUser.permissions.canViewHT && (
+            <HTTasks currentUser={currentUser} />
+          )}
 
-              <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-lg border border-orange-200">
-                <div className="flex items-center justify-between mb-4">
-                  <UserPlus className="w-8 h-8 text-orange-600" />
-                  <span className="text-2xl font-bold text-orange-900">{executiveSummary.pendingHS}</span>
-                </div>
-                <h3 className="font-semibold text-orange-900">Help Slips Pending</h3>
-                <p className="text-sm text-orange-700">In progress items</p>
-              </div>
+          {selectedTab === 'fms' && currentUser.permissions.canViewFMS && (
+            <FMSTasks currentUser={currentUser} />
+          )}
+
+          {selectedTab === 'pc' && currentUser.permissions.canViewPC && (
+            <PCTasks currentUser={currentUser} />
+          )}
+
+          {/* Add Checklist tab content */}
+          {selectedTab === 'checklist' && currentUser.permissions.canViewFMS && (
+            <ChecklistTasks 
+              fmsData={dataManager.getDataWithFallback('fms', currentUser.name)}
+              currentUser={currentUser} 
+              loading={false}
+              error={null}
+            />
+          )}
+          
+          {selectedTab === 'hs' && currentUser.permissions.canViewHS && (
+            <HSHelpSlip currentUser={currentUser} />
+          )}
+
+          {selectedTab === 'analytics' && currentUser.permissions.canViewAnalytics && (
+            <div className="bg-card-background rounded-xl p-8 border border-border-color">
+              <h2 className="text-2xl font-bold text-foreground mb-6">Analytics</h2>
+              <p className="text-sidebar-foreground">Analytics component will be implemented here.</p>
             </div>
           )}
 
-          {selectedTab === 'fms' && renderFMSAnalysis()}
-          {selectedTab === 'delegation' && renderDelegationAnalysis()}
-          {selectedTab === 'help-ticket' && renderHelpTicketAnalysis()}
-          {selectedTab === 'help-slip' && renderHelpSlipAnalysis()}
-        </div>
+          {/* Management Dashboard - New Addition */}
+          {selectedTab === 'management' && isManagementUser() && (
+            <ManagementDashboard currentUser={currentUser} />
+          )}
+
+          {selectedTab === 'admin' && currentUser.permissions.canViewAdmin && (
+            <AdminNotifications currentUser={currentUser} />
+          )}
+        </main>
       </div>
+
+      {/* New Task Notification Modal */}
+      {showNewTaskModal && (
+        <NewTaskNotification 
+          notifications={newTaskNotifications}
+          onClose={handleCloseNewTaskModal}
+          onMarkAllRead={handleMarkAllRead}
+        />
+      )}
+
+      {/* Right Sidebar - User Profile */}
+      {showRightSidebar && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end">
+          <div className="bg-white w-80 h-full shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">Profile</h2>
+              <button 
+                onClick={() => setShowRightSidebar(false)} 
+                className="text-gray-500 hover:text-red-500 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Profile Section */}
+            <div className="p-8 text-center">
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-white font-bold text-4xl">
+                  {currentUser.name.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                </span>
+              </div>
+              <h3 className="text-2xl font-semibold text-gray-900">{currentUser.name}</h3>
+              <p className="text-gray-600">{currentUser.email}</p>
+            </div>
+
+            {/* Info Cards */}
+            <div className="bg-gray-50 p-6 space-y-4">
+              <div className="flex items-center space-x-4 p-3 bg-white rounded-lg shadow-sm">
+                <Briefcase className="w-6 h-6 text-blue-500" />
+                <div>
+                  <p className="text-sm text-gray-500">Role</p>
+                  <p className="font-semibold text-gray-900">{currentUser.role}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-4 p-3 bg-white rounded-lg shadow-sm">
+                <Clock className="w-6 h-6 text-blue-500" />
+                <div>
+                  <p className="text-sm text-gray-500">Logged In At</p>
+                  <p className="font-semibold text-gray-900">
+                    {new Date(parseInt(loginTime, 10)).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* Logout Button */}
+              <button
+                onClick={onLogout}
+                className="w-full mt-4 bg-gradient-to-r from-red-500 to-pink-500 text-white py-3 px-4 rounded-lg font-semibold hover:from-red-600 hover:to-pink-600 transition-all duration-300"
+              >
+                <LogOut className="w-5 h-5 inline mr-2" />
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default ManagementDashboard;
+export default EmployeeDashboard;
